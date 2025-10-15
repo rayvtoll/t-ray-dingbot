@@ -85,9 +85,9 @@ logger.info(f"{GREY_TRADING_HOURS=}")
 # journaling strategy
 USE_JOURNALING_STRATEGY = config("USE_JOURNALING_STRATEGY", cast=bool, default=True)
 logger.info(f"{USE_JOURNALING_STRATEGY=}")
-JOURNALING_SL_PERCENTAGE = config("JOURNALING_SL_PERCENTAGE", cast=float, default="0.8")
+JOURNALING_SL_PERCENTAGE = config("JOURNALING_SL_PERCENTAGE", cast=float, default="0.4")
 logger.info(f"{JOURNALING_SL_PERCENTAGE=}")
-JOURNALING_TP_PERCENTAGE = config("JOURNALING_TP_PERCENTAGE", cast=float, default="4")
+JOURNALING_TP_PERCENTAGE = config("JOURNALING_TP_PERCENTAGE", cast=float, default="0.8")
 logger.info(f"{JOURNALING_TP_PERCENTAGE=}")
 JOURNALING_TRADING_DAYS = config(
     "JOURNALING_TRADING_DAYS", cast=Csv(int), default="0,1,2,3,4,5,6"
