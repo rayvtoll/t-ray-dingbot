@@ -1,0 +1,34 @@
+# Django
+__pycache__/
+*.log
+*.pot
+*.pyc
+__pycache
+
+# environment
+.env
+env
+venv/
+
+# pytest
+.pytest_cache/
+
+# Visual Studio
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.history
+
+# logging
+logs/
+
+# scanners
+.sonar_lock
+report-task.txt
+pylint.txt
+bandit_report.json
+.coverage
+coverage.json
+testing*
