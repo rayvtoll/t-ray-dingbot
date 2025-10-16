@@ -288,7 +288,7 @@ class Exchange:
             )
 
             # journaling position size is a fixed small size for now
-            journaling_position_size: float = 0.1
+            journaling_position_size: float = 0.0001
 
         except Exception as e:
             live_position_size = 0.1
