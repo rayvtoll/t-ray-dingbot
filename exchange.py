@@ -233,7 +233,7 @@ class Exchange:
             last_candles = await self.exchange.fetch_ohlcv(
                 symbol=TICKER,
                 timeframe="5m",
-                since=(self.scanner.now - timedelta(minutes=15)).timestamp() * 1000,
+                since=(self.scanner.now - timedelta(minutes=10)).timestamp() * 1000,
                 limit=2,
             )
             last_candle: Candle = Candle(*last_candles[-1])
@@ -654,7 +654,7 @@ class Exchange:
             order_log_info = dict(
                 strategy_type=strategy_type.capitalize(),
                 trade_direction=liquidation.direction,
-                amount=f"{amount} contract(s)",
+                amount=f"{amount} BTC",
                 price=f"$ {round(price, 2):,}",
                 stoploss=f"$ {round(stoploss_price, 2):,}",
                 takeprofit=f"$ {round(takeprofit_price, 2):,}",
@@ -681,7 +681,7 @@ class Exchange:
                         entry_price=price,
                         candles_before_entry=1,
                         side=(liquidation.direction).upper(),
-                        amount=amount / 1000,
+                        amount=amount,
                         take_profit_price=takeprofit_price,
                         stop_loss_price=stoploss_price,
                         liquidation_amount=int(
