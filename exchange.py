@@ -169,8 +169,16 @@ class Exchange:
                     "amount": f"{order.get("amount")} BTC",
                     "orderType": order.get("info", {}).get("orderType", ""),
                     "side": order.get("info", {}).get("side", ""),
-                    "triggerPrice": f"$ {round(float(order.get("triggerPrice", 0.0)), 2):,}" if order.get("triggerPrice") else None,
-                    "price": f"$ {round(float(order.get("price", 0.0)), 2):,}" if order.get("price") else None,
+                    "triggerPrice": (
+                        f"$ {round(float(order.get("triggerPrice", 0.0)), 2):,}"
+                        if order.get("triggerPrice")
+                        else None
+                    ),
+                    "price": (
+                        f"$ {round(float(order.get("price", 0.0)), 2):,}"
+                        if order.get("price")
+                        else None
+                    ),
                 }
                 for order in open_orders
             ]
@@ -267,17 +275,13 @@ class Exchange:
             live_usdt_size: float = (
                 total_balance / (LIVE_SL_PERCENTAGE * LEVERAGE)
             ) * POSITION_PERCENTAGE
-            live_position_size: float = round(
-                live_usdt_size / price * LEVERAGE, 4
-            )
+            live_position_size: float = round(live_usdt_size / price * LEVERAGE, 4)
 
             # calculate grey position size
             grey_usdt_size: float = (
                 total_balance / (GREY_SL_PERCENTAGE * LEVERAGE)
             ) * POSITION_PERCENTAGE
-            grey_position_size: float = round(
-                grey_usdt_size / price * LEVERAGE, 4
-            )
+            grey_position_size: float = round(grey_usdt_size / price * LEVERAGE, 4)
 
             # calculate reversed position size
             reversed_usdt_size: float = (
@@ -443,9 +447,7 @@ class Exchange:
         )
         return True
 
-    async def journaling_strategy(
-        self, liquidation: Liquidation, price: float
-    ) -> bool:
+    async def journaling_strategy(self, liquidation: Liquidation, price: float) -> bool:
         """Apply the journaling strategy to create datapoints for the journal with
         minimal risk"""
 
@@ -482,9 +484,7 @@ class Exchange:
             takeprofit_percentage=REVERSED_TP_PERCENTAGE,
         )
 
-    async def apply_live_strategy(
-        self, liquidation: Liquidation, price: float
-    ) -> bool:
+    async def apply_live_strategy(self, liquidation: Liquidation, price: float) -> bool:
         """Apply the live strategy during trading hours and days"""
 
         return await self.apply_strategy(
@@ -498,9 +498,7 @@ class Exchange:
             takeprofit_percentage=LIVE_TP_PERCENTAGE,
         )
 
-    async def apply_grey_strategy(
-        self, liquidation: Liquidation, price: float
-    ) -> bool:
+    async def apply_grey_strategy(self, liquidation: Liquidation, price: float) -> bool:
         """Apply the grey strategy during trading hours and days"""
 
         return await self.apply_strategy(
@@ -595,7 +593,9 @@ class Exchange:
                     reduceOnly=True,
                     triggerType="ByLastPrice",
                     triggerPrice=stoploss_price,
-                    triggerDirection="descending" if liquidation.direction == LONG else "ascending",
+                    triggerDirection=(
+                        "descending" if liquidation.direction == LONG else "ascending"
+                    ),
                 ),
             )
             takeprofit_order = await self.exchange.create_order(
@@ -610,14 +610,6 @@ class Exchange:
                     triggerType="ByLastPrice",
                 ),
             )
-            await self.do_order_logging(
-                liquidation,
-                price,
-                stoploss_price,
-                takeprofit_price,
-                amount,
-                strategy_type,
-            )
         except Exception as e:
             logger.error(f"Error placing order: {e}")
             if USE_DISCORD:
@@ -631,6 +623,14 @@ class Exchange:
                         False,
                     )
                 )
+        await self.do_order_logging(
+            liquidation,
+            price,  # TODO: use order price for logging if available
+            stoploss_price,
+            takeprofit_price,
+            amount,
+            strategy_type,
+        )
 
     async def do_order_logging(
         self,
