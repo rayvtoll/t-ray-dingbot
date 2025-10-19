@@ -568,10 +568,12 @@ class Exchange:
         """Process the order placement for the strategy using a market order"""
 
         logger.info(f"Placing {liquidation.direction} order")
+
+        # default values outside try block
+        stoploss_price = 0.0
+        takeprofit_price = 0.0
+
         try:
-            stoploss_price, takeprofit_price = await self.get_sl_and_tp_price(
-                liquidation, price, stoploss_percentage, takeprofit_percentage
-            )
             order = await self.exchange.create_order(
                 symbol=TICKER,
                 type="Market",
@@ -581,6 +583,12 @@ class Exchange:
                     posSide=liquidation.direction.capitalize(),
                     hedged=True,
                 ),
+            )
+            if order and order.get("price"):
+                price = order.get("price")
+
+            stoploss_price, takeprofit_price = await self.get_sl_and_tp_price(
+                liquidation, price, stoploss_percentage, takeprofit_percentage
             )
             stoploss_order = await self.exchange.create_order(
                 symbol=TICKER,
@@ -625,7 +633,7 @@ class Exchange:
                 )
         await self.do_order_logging(
             liquidation,
-            price,  # TODO: use order price for logging if available
+            price,
             stoploss_price,
             takeprofit_price,
             amount,
