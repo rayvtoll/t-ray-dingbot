@@ -61,7 +61,7 @@ logger.info(f"{REVERSED_SL_PERCENTAGE=}")
 REVERSED_TP_PERCENTAGE = config("REVERSED_TP_PERCENTAGE", cast=float, default="4.0")
 logger.info(f"{REVERSED_TP_PERCENTAGE=}")
 REVERSED_TRADING_DAYS = config(
-    "REVERSED_TRADING_DAYS", cast=Csv(int), default="0,1,3,4,5,6"
+    "REVERSED_TRADING_DAYS", cast=Csv(int), default="0,1,2,3,4,5,6"
 )
 logger.info(f"{REVERSED_TRADING_DAYS=}")
 REVERSED_TRADING_HOURS = config(
