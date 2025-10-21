@@ -1,4 +1,3 @@
-from datetime import timedelta
 import ccxt.pro as ccxt
 from coinalyze_scanner import CoinalyzeScanner
 from copy import deepcopy
@@ -30,10 +29,16 @@ if USE_AUTO_JOURNALING:
     )
     JOURNALING_API_KEY = config("JOURNALING_API_KEY")
 
-# blofin
-EXCHANGE_NAME = config("EXCHANGE_NAME", default="phemex")
+# exchange settings
+EXCHANGE_NAME = config("EXCHANGE_NAME", default="blofin")
 EXCHANGE_API_KEY = config("EXCHANGE_API_KEY")
 EXCHANGE_SECRET_KEY = config("EXCHANGE_SECRET_KEY")
+EXCHANGE_PASSPHRASE = config("EXCHANGE_PASSPHRASE")
+EXCHANGE_CONFIG = {
+    "apiKey": EXCHANGE_API_KEY,
+    "secret": EXCHANGE_SECRET_KEY,
+    "password": EXCHANGE_PASSPHRASE,
+}
 
 # trade settings
 LEVERAGE = config("LEVERAGE", cast=int, default="20")
@@ -117,14 +122,12 @@ class Exchange:
         self, liquidation_set: LiquidationSet, scanner: CoinalyzeScanner
     ) -> None:
         self.exchange: ccxt.Exchange = getattr(ccxt, EXCHANGE_NAME)(
-            config={
-                "apiKey": EXCHANGE_API_KEY,
-                "secret": EXCHANGE_SECRET_KEY,
-            }
+            config=EXCHANGE_CONFIG
         )
         self.liquidation_set: LiquidationSet = liquidation_set
         self.positions: List[dict] = []
         self.market_tpsl_orders: List[dict] = []
+        self.limit_orders: List[dict] = []
         self.scanner: CoinalyzeScanner = scanner
         self.discord_message_queue: List[Tuple[int, List[str], bool]] = []
 
@@ -136,13 +139,12 @@ class Exchange:
             positions = await self.exchange.fetch_positions(symbols=[TICKER])
             open_positions = [
                 {
-                    "amount": f"{position.get("info", {}).get("size")} BTC",
-                    "direction": position.get("info", {}).get("posSide", ""),
-                    "price": f"$ {round(float(position.get("info", {}).get("avgEntryPrice", 0.0)), 2):,}",
-                    "liquidation_price": f"$ {round(float(position.get("info", {}).get("liquidationPriceRp", 0.0)), 2):,}",
+                    "amount": f"{position.get("info", {}).get("positions")} contract(s)",
+                    "direction": position.get("info", {}).get("positionSide", ""),
+                    "price": f"$ {round(float(position.get("info", {}).get("averagePrice", 0.0)), 2):,}",
+                    "liquidation_price": f"$ {round(float(position.get("info", {}).get("liquidationPrice", 0.0)), 2):,}",
                 }
                 for position in positions
-                if position.get("unrealizedPnl")
             ]
         except Exception as e:
             logger.error(f"Error fetching positions: {e}")
@@ -161,23 +163,20 @@ class Exchange:
 
         # get open market tpsl orders
         try:
-            open_orders = await self.exchange.fetch_open_orders(
-                symbol=TICKER, params={"tpsl": True}
-            )
+            open_orders = await self.exchange.fetch_open_orders(params={"tpsl": True})
             market_tpsl_orders_info = [
                 {
-                    "amount": f"{order.get("amount")} BTC",
-                    "orderType": order.get("info", {}).get("orderType", ""),
-                    "side": order.get("info", {}).get("side", ""),
-                    "triggerPrice": (
-                        f"$ {round(float(order.get("triggerPrice", 0.0)), 2):,}"
-                        if order.get("triggerPrice")
-                        else None
+                    "amount": f"{order.get("info", {}).get("size")} contract(s)",
+                    "direction": order.get("info", {}).get("positionSide", ""),
+                    "stoploss": (
+                        f"$ {round(float(order.get("info", {}).get("slTriggerPrice", 0.0)), 2):,}"
+                        if order.get("info", {}).get("slTriggerPrice")
+                        else "-"
                     ),
-                    "price": (
-                        f"$ {round(float(order.get("price", 0.0)), 2):,}"
-                        if order.get("price")
-                        else None
+                    "takeprofit": (
+                        f"$ {round(float(order.get("info", {}).get("tpTriggerPrice", 0.0)), 2):,}"
+                        if order.get("info", {}).get("tpTriggerPrice")
+                        else "-"
                     ),
                 }
                 for order in open_orders
@@ -197,21 +196,52 @@ class Exchange:
                     )
                 )
 
+        # get open limit orders
+        try:
+            open_orders = await self.exchange.fetch_open_orders()
+            limit_orders_info = [
+                {
+                    "amount": f"{order.get("amount", 0.0)} contract(s)",
+                    "orderType": order.get("info", {}).get("orderType", ""),
+                    "direction": order.get("info", {}).get("side", ""),
+                    "price": f"$ {round(float(order.get("info", {}).get("price", 0.0)), 2):,}",
+                }
+                for order in open_orders
+            ]
+        except Exception as e:
+            logger.error(f"Error fetching open limit orders: {e}")
+            limit_orders_info = []
+            if USE_DISCORD:
+                self.discord_message_queue.append(
+                    (
+                        DISCORD_CHANNEL_HEARTBEAT_ID,
+                        [
+                            "Error fetching open limit orders from exchange:",
+                            str(e),
+                        ],
+                        False,
+                    )
+                )
+
         # only log and post to discord if there are changes
         if (
             self.positions != open_positions
             or self.market_tpsl_orders != market_tpsl_orders_info
+            or self.limit_orders != limit_orders_info
         ):
             self.market_tpsl_orders = market_tpsl_orders_info
+            self.limit_orders = limit_orders_info
             self.positions = open_positions
-            if not any(self.market_tpsl_orders or self.positions):
+            if not any(self.market_tpsl_orders or self.limit_orders or self.positions):
                 open_positions_and_orders = ["No open positions / orders."]
             else:
                 open_positions_and_orders = (
                     ["Position(s):"]
                     + [get_discord_table(position) for position in self.positions]
-                    + ["TP/SL order(s):"]
+                    + ["Market TP/SL order(s):"]
                     + [get_discord_table(order) for order in self.market_tpsl_orders]
+                    + ["Limit order(s):"]
+                    + [get_discord_table(order) for order in self.limit_orders]
                 )
             logger.info(f"{open_positions_and_orders=}")
             if USE_DISCORD:
@@ -219,7 +249,7 @@ class Exchange:
                     (DISCORD_CHANNEL_POSITIONS_ID, open_positions_and_orders, False)
                 )
 
-    async def set_leverage(self, symbol: str, leverage: int) -> None:
+    async def set_leverage(self, symbol: str, leverage: int, direction: str) -> None:
         """Set the leverage for the exchange"""
 
         try:
@@ -227,7 +257,7 @@ class Exchange:
                 await self.exchange.set_leverage(
                     symbol=symbol,
                     leverage=leverage,
-                    params={"hedged": True},
+                    params={"marginMode": "isolated", "positionSide": direction},
                 )
             )
         except Exception as e:
@@ -241,7 +271,7 @@ class Exchange:
             last_candles = await self.exchange.fetch_ohlcv(
                 symbol=TICKER,
                 timeframe="5m",
-                since=(self.scanner.now - timedelta(minutes=10)).timestamp() * 1000,
+                since=None,
                 limit=2,
             )
             last_candle: Candle = Candle(*last_candles[-1])
@@ -266,8 +296,8 @@ class Exchange:
         """Set the position size for the exchange"""
 
         try:
-            # fetch balance and price
-            balance: dict = await self.exchange.fetch_balance(params={"type": "swap"})
+            # fetch balance and bid/ask
+            balance: dict = await self.exchange.fetch_balance()
             total_balance: float = balance.get("USDT", {}).get("total", 1)
             price = await self.get_price()
 
@@ -275,24 +305,24 @@ class Exchange:
             live_usdt_size: float = (
                 total_balance / (LIVE_SL_PERCENTAGE * LEVERAGE)
             ) * POSITION_PERCENTAGE
-            live_position_size: float = round(live_usdt_size / price * LEVERAGE, 4)
+            live_position_size: float = round(live_usdt_size / price * LEVERAGE * 1000, 1)
 
             # calculate grey position size
             grey_usdt_size: float = (
                 total_balance / (GREY_SL_PERCENTAGE * LEVERAGE)
             ) * POSITION_PERCENTAGE
-            grey_position_size: float = round(grey_usdt_size / price * LEVERAGE, 4)
+            grey_position_size: float = round(grey_usdt_size / price * LEVERAGE * 1000, 1)
 
             # calculate reversed position size
             reversed_usdt_size: float = (
                 total_balance / (REVERSED_SL_PERCENTAGE * LEVERAGE)
             ) * POSITION_PERCENTAGE
             reversed_position_size: float = round(
-                reversed_usdt_size / price * LEVERAGE, 4
+                reversed_usdt_size / price * LEVERAGE * 1000, 1
             )
 
             # journaling position size is a fixed small size for now
-            journaling_position_size: float = 0.0001
+            journaling_position_size: float = 0.1
 
         except Exception as e:
             live_position_size = 0.1
@@ -378,6 +408,10 @@ class Exchange:
 
         # get price from ticker
         price = await self.get_price()
+        
+        # if price is None, skip processing
+        if price is None:
+            return
 
         # loop over detected liquidations
         for liquidation in self.liquidation_set.liquidations:
@@ -437,7 +471,7 @@ class Exchange:
         if self.scanner.now.weekday() not in days or self.scanner.now.hour not in hours:
             return False
 
-        await self.market_order_placement(
+        await self.limit_order_placement(
             amount=amount,
             liquidation=liquidation,
             price=price,
@@ -534,12 +568,12 @@ class Exchange:
         )
         return stoploss_price, takeprofit_price
 
-    async def get_price(self) -> float:
+    async def get_price(self) -> float | None:
         """Get the current price from the exchange ticker"""
 
         try:
             ticker_data = await self.exchange.fetch_ticker(symbol=TICKER)
-            price = ticker_data["last"]
+            return ticker_data["last"]
         except Exception as e:
             logger.error(f"Error fetching ticker: {e}")
             if USE_DISCORD:
@@ -553,10 +587,9 @@ class Exchange:
                         False,
                     )
                 )
-            price = 0.0
-        return price
+            return None
 
-    async def market_order_placement(
+    async def limit_order_placement(
         self,
         amount: float,
         liquidation: Liquidation,
@@ -569,51 +602,24 @@ class Exchange:
 
         logger.info(f"Placing {liquidation.direction} order")
 
-        # default values outside try block
-        stoploss_price = 0.0
-        takeprofit_price = 0.0
-
         try:
-            order = await self.exchange.create_order(
-                symbol=TICKER,
-                type="Market",
-                side="Buy" if liquidation.direction == LONG else "Sell",
-                amount=amount,
-                params=dict(
-                    posSide=liquidation.direction.capitalize(),
-                    hedged=True,
-                ),
+            price = round(price * 1.0001, 1) if liquidation.direction == SHORT else round(
+                price * 0.9999, 1
             )
-
             stoploss_price, takeprofit_price = await self.get_sl_and_tp_price(
                 liquidation, price, stoploss_percentage, takeprofit_percentage
             )
-            stoploss_order = await self.exchange.create_order(
+            order = await self.exchange.create_order(
                 symbol=TICKER,
-                type="Stop",
-                side="Sell" if liquidation.direction == LONG else "Buy",
+                type="limit",
+                side="buy" if liquidation.direction == LONG else "sell",
                 amount=amount,
-                price=stoploss_price,
+                price=price,
                 params=dict(
-                    posSide=liquidation.direction.capitalize(),
-                    reduceOnly=True,
-                    triggerType="ByLastPrice",
-                    triggerPrice=stoploss_price,
-                    triggerDirection=(
-                        "descending" if liquidation.direction == LONG else "ascending"
-                    ),
-                ),
-            )
-            takeprofit_order = await self.exchange.create_order(
-                symbol=TICKER,
-                type="Limit",
-                side="sell" if liquidation.direction == LONG else "Buy",
-                amount=amount,
-                price=takeprofit_price,
-                params=dict(
-                    posSide=liquidation.direction.capitalize(),
-                    reduceOnly=True,
-                    triggerType="ByLastPrice",
+                    marginMode="isolated",
+                    positionSide=liquidation.direction,
+                    stopLoss=dict(reduceOnly=True, triggerPrice=stoploss_price),
+                    takeProfit=dict(reduceOnly=True, triggerPrice=takeprofit_price),
                 ),
             )
         except Exception as e:
@@ -634,7 +640,7 @@ class Exchange:
             price,
             stoploss_price,
             takeprofit_price,
-            amount,
+            round(amount / 1000, 4),
             strategy_type,
         )
 

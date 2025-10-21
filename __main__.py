@@ -86,10 +86,12 @@ async def main() -> None:
     exchange = Exchange(LIQUIDATION_SET, scanner)
     scanner.exchange = exchange
 
-    await exchange.set_leverage(
-        symbol=TICKER,
-        leverage=LEVERAGE,
-    )
+    for direction in ["long", "short"]:
+        await exchange.set_leverage(
+            symbol=TICKER,
+            leverage=LEVERAGE,
+            direction=direction,
+        )
 
     # start the bot
     info = "Starting / Restarting the bot"

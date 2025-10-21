@@ -1,6 +1,6 @@
 # t-Ray-dingbot
 
-Fully automatic trading bot for (Phemex) Futures using liquidations from Coinalyze to counter trade as a strategy. The bot currently uses 4 strategies: live, reversed, Grey and journaling. The position sizes for these strategies are full for live, reversed and grey, but minimal size for journaling.
+Fully automatic trading bot for (BloFin) Futures using liquidations from Coinalyze to counter trade as a strategy. The bot currently uses 4 strategies: live, reversed, Grey and journaling. The position sizes for these strategies are full for live, reversed and grey, but minimal size for journaling.
 
 ## To get started
 
