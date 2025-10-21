@@ -584,8 +584,6 @@ class Exchange:
                     hedged=True,
                 ),
             )
-            if order and order.get("price"):
-                price = order.get("price")
 
             stoploss_price, takeprofit_price = await self.get_sl_and_tp_price(
                 liquidation, price, stoploss_percentage, takeprofit_percentage
