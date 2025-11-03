@@ -55,7 +55,7 @@ LIVE_TP_PERCENTAGE = config("LIVE_TP_PERCENTAGE", cast=float, default="5.0")
 logger.info(f"{LIVE_TP_PERCENTAGE=}")
 LIVE_TRADING_DAYS = config("LIVE_TRADING_DAYS", cast=Csv(int), default="0,1,2,3,4,5,6")
 logger.info(f"{LIVE_TRADING_DAYS=}")
-LIVE_TRADING_HOURS = config("LIVE_TRADING_HOURS", cast=Csv(int), default="2,3,4")
+LIVE_TRADING_HOURS = config("LIVE_TRADING_HOURS", cast=Csv(int), default="1,2,3,4")
 logger.info(f"{LIVE_TRADING_HOURS=}")
 
 # reversed strategy
@@ -74,6 +74,7 @@ REVERSED_TRADING_HOURS = config(
 )
 logger.info(f"{REVERSED_TRADING_HOURS=}")
 
+# grey strategy
 USE_GREY_STRATEGY = config("USE_GREY_STRATEGY", cast=bool, default=True)
 logger.info(f"{USE_GREY_STRATEGY=}")
 GREY_SL_PERCENTAGE = config("GREY_SL_PERCENTAGE", cast=float, default="0.8")
@@ -83,7 +84,7 @@ logger.info(f"{GREY_TP_PERCENTAGE=}")
 GREY_TRADING_DAYS = config("GREY_TRADING_DAYS", cast=Csv(int), default="0,1,3,4,5,6")
 logger.info(f"{GREY_TRADING_DAYS=}")
 GREY_TRADING_HOURS = config(
-    "GREY_TRADING_HOURS", cast=Csv(int), default="0,1,17,18,19,20,21,22,23"
+    "GREY_TRADING_HOURS", cast=Csv(int), default="0,17,18,19,20,21,22,23"
 )
 logger.info(f"{GREY_TRADING_HOURS=}")
 
