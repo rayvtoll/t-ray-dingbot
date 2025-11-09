@@ -409,7 +409,7 @@ class Exchange:
 
         # get price from ticker
         price = await self.get_price()
-        
+
         # if price is None, skip processing
         if price is None:
             return
@@ -604,8 +604,10 @@ class Exchange:
         logger.info(f"Placing {liquidation.direction} order")
 
         try:
-            price = round(price * 1.0001, 1) if liquidation.direction == SHORT else round(
-                price * 0.9999, 1
+            price = (
+                round(price * 1.0001, 1)
+                if liquidation.direction == SHORT
+                else round(price * 0.9999, 1)
             )
             stoploss_price, takeprofit_price = await self.get_sl_and_tp_price(
                 liquidation, price, stoploss_percentage, takeprofit_percentage
@@ -690,7 +692,7 @@ class Exchange:
                 response = None
                 try:
                     data = dict(
-                        start=f"{self.scanner.now}",
+                        start=f"{self.scanner.now.replace(second=0, microsecond=0)}",
                         entry_price=price,
                         candles_before_entry=1,
                         side=(liquidation.direction).upper(),

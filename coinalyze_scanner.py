@@ -21,7 +21,7 @@ COINALYZE_LIQUIDATION_URL = "https://api.coinalyze.net/v1/liquidation-history"
 FUTURE_MARKETS_URL = "https://api.coinalyze.net/v1/future-markets"
 
 
-N_MINUTES_TIMEDELTA = config("N_MINUTES_TIMEDELTA", default=5, cast=int)
+N_MINUTES_TIMEDELTA = config("N_MINUTES_TIMEDELTA", default="5", cast=int)
 logger.info(f"{N_MINUTES_TIMEDELTA=}")
 
 INTERVAL = config("INTERVAL", default="5min")
