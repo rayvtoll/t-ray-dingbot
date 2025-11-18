@@ -43,68 +43,88 @@ EXCHANGE_CONFIG = {
 # trade settings
 LEVERAGE = config("LEVERAGE", cast=int, default="20")
 logger.info(f"{LEVERAGE=}")
-POSITION_PERCENTAGE = config("POSITION_PERCENTAGE", cast=float, default="1")
-logger.info(f"{POSITION_PERCENTAGE=}")
+USE_FIXED_RISK = config("USE_FIXED_RISK", cast=bool, default=False)
+logger.info(f"{USE_FIXED_RISK=}")
+if USE_FIXED_RISK:
+    FIXED_RISK_EX_FEES = config("FIXED_RISK_EX_FEES", cast=float, default="50.0")
+    logger.info(f"{FIXED_RISK_EX_FEES=}")
+else:
+    POSITION_PERCENTAGE = config("POSITION_PERCENTAGE", cast=float, default="0.5")
+    logger.info(f"{POSITION_PERCENTAGE=}")
 
 # live strategy
-USE_LIVE_STRATEGY = config("USE_LIVE_STRATEGY", cast=bool, default=True)
+USE_LIVE_STRATEGY = config("USE_LIVE_STRATEGY", cast=bool, default="true")
 logger.info(f"{USE_LIVE_STRATEGY=}")
-LIVE_SL_PERCENTAGE = config("LIVE_SL_PERCENTAGE", cast=float, default="0.5")
-logger.info(f"{LIVE_SL_PERCENTAGE=}")
-LIVE_TP_PERCENTAGE = config("LIVE_TP_PERCENTAGE", cast=float, default="5.0")
-logger.info(f"{LIVE_TP_PERCENTAGE=}")
-LIVE_TRADING_DAYS = config("LIVE_TRADING_DAYS", cast=Csv(int), default="0,1,2,3,4,5,6")
-logger.info(f"{LIVE_TRADING_DAYS=}")
-LIVE_TRADING_HOURS = config("LIVE_TRADING_HOURS", cast=Csv(int), default="1,2,3,4")
-logger.info(f"{LIVE_TRADING_HOURS=}")
+if USE_LIVE_STRATEGY:
+    LIVE_SL_PERCENTAGE = config("LIVE_SL_PERCENTAGE", cast=float, default="0.5")
+    logger.info(f"{LIVE_SL_PERCENTAGE=}")
+    LIVE_TP_PERCENTAGE = config("LIVE_TP_PERCENTAGE", cast=float, default="5.0")
+    logger.info(f"{LIVE_TP_PERCENTAGE=}")
+    LIVE_TRADING_DAYS = config(
+        "LIVE_TRADING_DAYS", cast=Csv(int), default="0,1,2,3,4,5,6"
+    )
+    logger.info(f"{LIVE_TRADING_DAYS=}")
+    LIVE_TRADING_HOURS = config(
+        "LIVE_TRADING_HOURS", cast=Csv(int), default="2,3,4,14,15,16"
+    )
+    logger.info(f"{LIVE_TRADING_HOURS=}")
 
 # reversed strategy
-USE_REVERSED_STRATEGY = config("USE_REVERSED_STRATEGY", cast=bool, default=True)
+USE_REVERSED_STRATEGY = config("USE_REVERSED_STRATEGY", cast=bool, default="true")
 logger.info(f"{USE_REVERSED_STRATEGY=}")
-REVERSED_SL_PERCENTAGE = config("REVERSED_SL_PERCENTAGE", cast=float, default="0.40")
-logger.info(f"{REVERSED_SL_PERCENTAGE=}")
-REVERSED_TP_PERCENTAGE = config("REVERSED_TP_PERCENTAGE", cast=float, default="4.0")
-logger.info(f"{REVERSED_TP_PERCENTAGE=}")
-REVERSED_TRADING_DAYS = config(
-    "REVERSED_TRADING_DAYS", cast=Csv(int), default="0,1,2,3,4,5,6"
-)
-logger.info(f"{REVERSED_TRADING_DAYS=}")
-REVERSED_TRADING_HOURS = config(
-    "REVERSED_TRADING_HOURS", cast=Csv(int), default="14,15,16"
-)
-logger.info(f"{REVERSED_TRADING_HOURS=}")
+if USE_REVERSED_STRATEGY:
+    REVERSED_SL_PERCENTAGE = config("REVERSED_SL_PERCENTAGE", cast=float, default="0.5")
+    logger.info(f"{REVERSED_SL_PERCENTAGE=}")
+    REVERSED_TP_PERCENTAGE = config("REVERSED_TP_PERCENTAGE", cast=float, default="5.0")
+    logger.info(f"{REVERSED_TP_PERCENTAGE=}")
+    REVERSED_TRADING_DAYS = config(
+        "REVERSED_TRADING_DAYS", cast=Csv(int), default="0,1,2,3,4,5,6"
+    )
+    logger.info(f"{REVERSED_TRADING_DAYS=}")
+    REVERSED_TRADING_HOURS = config(
+        "REVERSED_TRADING_HOURS", cast=Csv(int), default="2,3,4,14,15,16"
+    )
+    logger.info(f"{REVERSED_TRADING_HOURS=}")
 
 # grey strategy
-USE_GREY_STRATEGY = config("USE_GREY_STRATEGY", cast=bool, default=True)
+USE_GREY_STRATEGY = config("USE_GREY_STRATEGY", cast=bool, default="false")
 logger.info(f"{USE_GREY_STRATEGY=}")
-GREY_SL_PERCENTAGE = config("GREY_SL_PERCENTAGE", cast=float, default="0.8")
-logger.info(f"{GREY_SL_PERCENTAGE=}")
-GREY_TP_PERCENTAGE = config("GREY_TP_PERCENTAGE", cast=float, default="4.0")
-logger.info(f"{GREY_TP_PERCENTAGE=}")
-GREY_TRADING_DAYS = config("GREY_TRADING_DAYS", cast=Csv(int), default="0,1,3,4,5,6")
-logger.info(f"{GREY_TRADING_DAYS=}")
-GREY_TRADING_HOURS = config(
-    "GREY_TRADING_HOURS", cast=Csv(int), default="0,17,18,19,20,21,22,23"
-)
-logger.info(f"{GREY_TRADING_HOURS=}")
+if USE_GREY_STRATEGY:
+    GREY_SL_PERCENTAGE = config("GREY_SL_PERCENTAGE", cast=float, default="0.8")
+    logger.info(f"{GREY_SL_PERCENTAGE=}")
+    GREY_TP_PERCENTAGE = config("GREY_TP_PERCENTAGE", cast=float, default="4.0")
+    logger.info(f"{GREY_TP_PERCENTAGE=}")
+    GREY_TRADING_DAYS = config(
+        "GREY_TRADING_DAYS", cast=Csv(int), default="0,1,3,4,5,6"
+    )
+    logger.info(f"{GREY_TRADING_DAYS=}")
+    GREY_TRADING_HOURS = config(
+        "GREY_TRADING_HOURS", cast=Csv(int), default="0,17,18,19,20,21,22,23"
+    )
+    logger.info(f"{GREY_TRADING_HOURS=}")
 
 # journaling strategy
-USE_JOURNALING_STRATEGY = config("USE_JOURNALING_STRATEGY", cast=bool, default=True)
+USE_JOURNALING_STRATEGY = config("USE_JOURNALING_STRATEGY", cast=bool, default="false")
 logger.info(f"{USE_JOURNALING_STRATEGY=}")
-JOURNALING_SL_PERCENTAGE = config("JOURNALING_SL_PERCENTAGE", cast=float, default="0.4")
-logger.info(f"{JOURNALING_SL_PERCENTAGE=}")
-JOURNALING_TP_PERCENTAGE = config("JOURNALING_TP_PERCENTAGE", cast=float, default="0.8")
-logger.info(f"{JOURNALING_TP_PERCENTAGE=}")
-JOURNALING_TRADING_DAYS = config(
-    "JOURNALING_TRADING_DAYS", cast=Csv(int), default="0,1,2,3,4,5,6"
-)
-logger.info(f"{JOURNALING_TRADING_DAYS=}")
-JOURNALING_TRADING_HOURS = config(
-    "JOURNALING_TRADING_HOURS",
-    cast=Csv(int),
-    default="0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23",
-)
-logger.info(f"{JOURNALING_TRADING_HOURS=}")
+if USE_JOURNALING_STRATEGY:
+    JOURNALING_SL_PERCENTAGE = config(
+        "JOURNALING_SL_PERCENTAGE", cast=float, default="0.4"
+    )
+    logger.info(f"{JOURNALING_SL_PERCENTAGE=}")
+    JOURNALING_TP_PERCENTAGE = config(
+        "JOURNALING_TP_PERCENTAGE", cast=float, default="0.8"
+    )
+    logger.info(f"{JOURNALING_TP_PERCENTAGE=}")
+    JOURNALING_TRADING_DAYS = config(
+        "JOURNALING_TRADING_DAYS", cast=Csv(int), default="0,1,2,3,4,5,6"
+    )
+    logger.info(f"{JOURNALING_TRADING_DAYS=}")
+    JOURNALING_TRADING_HOURS = config(
+        "JOURNALING_TRADING_HOURS",
+        cast=Csv(int),
+        default="0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23",
+    )
+    logger.info(f"{JOURNALING_TRADING_HOURS=}")
 
 # Strategy types
 LIVE = "live"
@@ -303,33 +323,59 @@ class Exchange:
             price = await self.get_price()
 
             # calculate live position size
-            live_usdt_size: float = (
-                total_balance / (LIVE_SL_PERCENTAGE * LEVERAGE)
-            ) * POSITION_PERCENTAGE
-            live_position_size: float = round(live_usdt_size / price * LEVERAGE * 1000, 1)
+            if USE_LIVE_STRATEGY:
+                if USE_FIXED_RISK:
+                    live_usdt_size: float = (
+                        FIXED_RISK_EX_FEES * LIVE_SL_PERCENTAGE * LEVERAGE
+                    )
+                else:
+                    live_usdt_size: float = (
+                        total_balance / (LIVE_SL_PERCENTAGE * LEVERAGE)
+                    ) * POSITION_PERCENTAGE
+                live_position_size: float = round(
+                    live_usdt_size / price * LEVERAGE * 1000, 1
+                )
 
             # calculate grey position size
-            grey_usdt_size: float = (
-                total_balance / (GREY_SL_PERCENTAGE * LEVERAGE)
-            ) * POSITION_PERCENTAGE
-            grey_position_size: float = round(grey_usdt_size / price * LEVERAGE * 1000, 1)
+            if USE_GREY_STRATEGY:
+                if USE_FIXED_RISK:
+                    grey_usdt_size: float = (
+                        FIXED_RISK_EX_FEES * GREY_SL_PERCENTAGE * LEVERAGE
+                    )
+                else:
+                    grey_usdt_size: float = (
+                        total_balance / (GREY_SL_PERCENTAGE * LEVERAGE)
+                    ) * POSITION_PERCENTAGE
+                grey_position_size: float = round(
+                    grey_usdt_size / price * LEVERAGE * 1000, 1
+                )
 
             # calculate reversed position size
-            reversed_usdt_size: float = (
-                total_balance / (REVERSED_SL_PERCENTAGE * LEVERAGE)
-            ) * POSITION_PERCENTAGE
-            reversed_position_size: float = round(
-                reversed_usdt_size / price * LEVERAGE * 1000, 1
-            )
+            if USE_REVERSED_STRATEGY:
+                if USE_FIXED_RISK:
+                    reversed_usdt_size: float = (
+                        FIXED_RISK_EX_FEES * REVERSED_SL_PERCENTAGE * LEVERAGE
+                    )
+                else:
+                    reversed_usdt_size: float = (
+                        total_balance / (REVERSED_SL_PERCENTAGE * LEVERAGE)
+                    ) * POSITION_PERCENTAGE
+                reversed_position_size: float = round(
+                    reversed_usdt_size / price * LEVERAGE * 1000, 1
+                )
 
             # journaling position size is a fixed small size for now
             journaling_position_size: float = 0.1
 
         except Exception as e:
-            live_position_size = 0.1
-            reversed_position_size = 0.1
-            journaling_position_size = 0.1
-            grey_position_size = 0.1
+            if USE_LIVE_STRATEGY:
+                live_position_size = 0.1
+            if USE_REVERSED_STRATEGY:
+                reversed_position_size = 0.1
+            if USE_JOURNALING_STRATEGY:
+                journaling_position_size = 0.1
+            if USE_GREY_STRATEGY:
+                grey_position_size = 0.1
             logger.error(f"Error setting position size: {e}")
             if USE_DISCORD:
                 self.discord_message_queue.append(
@@ -345,40 +391,67 @@ class Exchange:
 
         # set the position sizes if they are not set yet
         if (
-            not hasattr(self, "_live_position_size")
-            or not hasattr(self, "_reversed_position_size")
-            or not hasattr(self, "_journaling_position_size")
-            or not hasattr(self, "_grey_position_size")
+            (USE_LIVE_STRATEGY and not hasattr(self, "_live_position_size"))
+            or (USE_REVERSED_STRATEGY and not hasattr(self, "_reversed_position_size"))
+            or (
+                USE_JOURNALING_STRATEGY
+                and not hasattr(self, "_journaling_position_size")
+            )
+            or (USE_GREY_STRATEGY and not hasattr(self, "_grey_position_size"))
         ):
-            self._live_position_size = live_position_size
-            self._reversed_position_size = reversed_position_size
-            self._journaling_position_size = journaling_position_size
-            self._grey_position_size = grey_position_size
+            if USE_LIVE_STRATEGY:
+                self._live_position_size = live_position_size
+            if USE_REVERSED_STRATEGY:
+                self._reversed_position_size = reversed_position_size
+            if USE_JOURNALING_STRATEGY:
+                self._journaling_position_size = journaling_position_size
+            if USE_GREY_STRATEGY:
+                self._grey_position_size = grey_position_size
             logger.info(
-                f"Initial {self._live_position_size=} - "
-                + f"{self._reversed_position_size=} - "
-                + f"{self._journaling_position_size=} - "
-                + f"{self._grey_position_size=}"
+                f"Initial "
+                + (f"{self._live_position_size= } - " if USE_LIVE_STRATEGY else "")
+                + (
+                    f"{self._reversed_position_size=} - "
+                    if USE_REVERSED_STRATEGY
+                    else ""
+                )
+                + (
+                    f"{self._journaling_position_size=} - "
+                    if USE_JOURNALING_STRATEGY
+                    else ""
+                )
+                + (f"{self._grey_position_size=}" if USE_GREY_STRATEGY else "")
             )
             return
 
         # set the position sizes if they have changed
         if (
-            live_position_size != self._live_position_size
-            or reversed_position_size != self._reversed_position_size
-            or journaling_position_size != self._journaling_position_size
-            or grey_position_size != self._grey_position_size
+            (USE_LIVE_STRATEGY and (live_position_size != self._live_position_size))
+            or (
+                USE_REVERSED_STRATEGY
+                and (reversed_position_size != self._reversed_position_size)
+            )
+            or (
+                USE_JOURNALING_STRATEGY
+                and (journaling_position_size != self._journaling_position_size)
+            )
+            or (USE_GREY_STRATEGY and (grey_position_size != self._grey_position_size))
         ):
             logger.info(
-                f"{live_position_size=} - "
-                + f"{reversed_position_size=} - "
-                + f"{journaling_position_size=} - "
-                + f"{grey_position_size=}"
+                (f"{live_position_size=} - " if USE_LIVE_STRATEGY else "")
+                + (f"{reversed_position_size=} - " if USE_REVERSED_STRATEGY else "")
+                + (f"{journaling_position_size=} - " if USE_JOURNALING_STRATEGY else "")
+                + (f"{grey_position_size=}" if USE_GREY_STRATEGY else "")
             )
-            self._live_position_size = live_position_size
-            self._reversed_position_size = reversed_position_size
-            self._journaling_position_size = journaling_position_size
-            self._grey_position_size = grey_position_size
+
+            if USE_LIVE_STRATEGY:
+                self._live_position_size = live_position_size
+            if USE_REVERSED_STRATEGY:
+                self._reversed_position_size = reversed_position_size
+            if USE_JOURNALING_STRATEGY:
+                self._journaling_position_size = journaling_position_size
+            if USE_GREY_STRATEGY:
+                self._grey_position_size = grey_position_size
 
     @property
     def live_position_size(self) -> int:
@@ -458,13 +531,14 @@ class Exchange:
     async def apply_strategy(
         self,
         liquidation: Liquidation,
-        price: float,
         days: List[int],
         hours: List[int],
         amount: float,
         strategy_type: str,
         stoploss_percentage: float,
         takeprofit_percentage: float,
+        log_order_to_backend: bool,
+        post_to_discord: bool,
     ) -> bool:
         """Apply the strategy during trading hours and days"""
 
@@ -472,14 +546,41 @@ class Exchange:
         if self.scanner.now.weekday() not in days or self.scanner.now.hour not in hours:
             return False
 
-        await self.limit_order_placement(
+        price, stoploss_price, takeprofit_price = await self.limit_order_placement(
             amount=amount,
             liquidation=liquidation,
-            price=price,
             stoploss_percentage=stoploss_percentage,
             takeprofit_percentage=takeprofit_percentage,
-            strategy_type=strategy_type,
         )
+        reaction_liquidation = deepcopy(liquidation)
+
+        # revert back the liquidation direction for logging and journaling
+        if strategy_type == REVERSED:
+            reaction_liquidation.direction = (
+                LONG if liquidation.direction == SHORT else SHORT
+            )
+
+        if USE_DISCORD and post_to_discord:
+            await self.post_trade_to_discord(
+                liquidation,
+                reaction_liquidation,
+                price,
+                stoploss_price,
+                takeprofit_price,
+                amount,
+                strategy_type,
+            )
+        if log_order_to_backend:
+            await self.log_to_backend(
+                liquidation,
+                reaction_liquidation,
+                price,
+                stoploss_price,
+                takeprofit_price,
+                round(amount / 1000, 4),
+                strategy_type,
+            )
+
         return True
 
     async def journaling_strategy(self, liquidation: Liquidation, price: float) -> bool:
@@ -488,13 +589,14 @@ class Exchange:
 
         return await self.apply_strategy(
             liquidation=liquidation,
-            price=price,
             days=JOURNALING_TRADING_DAYS,
             hours=JOURNALING_TRADING_HOURS,
             amount=self.journaling_position_size,
             strategy_type=JOURNALING,
             stoploss_percentage=JOURNALING_SL_PERCENTAGE,
             takeprofit_percentage=JOURNALING_TP_PERCENTAGE,
+            log_order_to_backend=True,
+            post_to_discord=False,
         )
 
     async def apply_reversed_strategy(
@@ -510,13 +612,14 @@ class Exchange:
 
         return await self.apply_strategy(
             liquidation=reversed_liquidation,
-            price=price,
             days=REVERSED_TRADING_DAYS,
             hours=REVERSED_TRADING_HOURS,
             amount=self.reversed_position_size,
             strategy_type=REVERSED,
             stoploss_percentage=REVERSED_SL_PERCENTAGE,
             takeprofit_percentage=REVERSED_TP_PERCENTAGE,
+            log_order_to_backend=False,
+            post_to_discord=True,
         )
 
     async def apply_live_strategy(self, liquidation: Liquidation, price: float) -> bool:
@@ -524,13 +627,14 @@ class Exchange:
 
         return await self.apply_strategy(
             liquidation=liquidation,
-            price=price,
             days=LIVE_TRADING_DAYS,
             hours=LIVE_TRADING_HOURS,
             amount=self.live_position_size,
             strategy_type=LIVE,
             stoploss_percentage=LIVE_SL_PERCENTAGE,
             takeprofit_percentage=LIVE_TP_PERCENTAGE,
+            log_order_to_backend=True,
+            post_to_discord=True,
         )
 
     async def apply_grey_strategy(self, liquidation: Liquidation, price: float) -> bool:
@@ -545,6 +649,8 @@ class Exchange:
             strategy_type="grey",
             stoploss_percentage=GREY_SL_PERCENTAGE,
             takeprofit_percentage=GREY_TP_PERCENTAGE,
+            log_order_to_backend=True,
+            post_to_discord=True,
         )
 
     async def get_sl_and_tp_price(
@@ -594,16 +700,19 @@ class Exchange:
         self,
         amount: float,
         liquidation: Liquidation,
-        price: float,
         stoploss_percentage: float,
         takeprofit_percentage: float,
-        strategy_type: str,
-    ) -> None:
-        """Process the order placement for the strategy using a market order"""
+    ) -> Tuple[float, float, float]:
+        """Process the order placement for the strategy using a market order
+
+        Returns:
+            Tuple[float, float, float]: The price, stoploss price, and takeprofit price
+        """
 
         logger.info(f"Placing {liquidation.direction} order")
 
         try:
+            price = await self.get_price()
             price = (
                 round(price * 1.0001, 1)
                 if liquidation.direction == SHORT
@@ -638,56 +747,67 @@ class Exchange:
                         False,
                     )
                 )
-        await self.do_order_logging(
-            liquidation,
-            price,
-            stoploss_price,
-            takeprofit_price,
-            round(amount / 1000, 4),
-            strategy_type,
-        )
+        return price, stoploss_price, takeprofit_price
 
-    async def do_order_logging(
+    async def post_trade_to_discord(
         self,
         liquidation: Liquidation,
+        reaction_liquidation: Liquidation,
         price: float,
         stoploss_price: float,
         takeprofit_price: float,
         amount: float,
         strategy_type: str,
     ) -> None:
-        """Log the order details"""
-
+        """Post the order details to discord"""
         try:
-            reaction_liquidation = deepcopy(liquidation)
-
-            # revert back the liquidation direction for logging and journaling
-            if strategy_type == REVERSED:
-                reaction_liquidation.direction = (
-                    LONG if liquidation.direction == SHORT else SHORT
-                )
             order_log_info = dict(
                 strategy_type=strategy_type.capitalize(),
                 trade_direction=liquidation.direction,
-                amount=f"{amount} BTC",
+                amount=f"{amount} contract(s)",
                 price=f"$ {round(price, 2):,}",
                 stoploss=f"$ {round(stoploss_price, 2):,}",
                 takeprofit=f"$ {round(takeprofit_price, 2):,}",
                 reaction_to_liquidation=reaction_liquidation.to_dict(),
             )
             logger.info(f"{order_log_info=}")
-            if USE_DISCORD and strategy_type != JOURNALING:
+            self.discord_message_queue.append(
+                (
+                    DISCORD_CHANNEL_TRADES_ID,
+                    [
+                        f":bar_chart: New {liquidation.direction} trade :rocket:",
+                        f"{get_discord_table(order_log_info)}",
+                    ],
+                    True if USE_AT_EVERYONE else False,
+                )
+            )
+        except Exception as e:
+            logger.error(f"Error posting order to discord: {e}")
+            if USE_DISCORD:
                 self.discord_message_queue.append(
                     (
-                        DISCORD_CHANNEL_TRADES_ID,
+                        DISCORD_CHANNEL_HEARTBEAT_ID,
                         [
-                            f":bar_chart: New {liquidation.direction} trade :rocket:",
-                            f"{get_discord_table(order_log_info)}",
+                            "Error logging order:",
+                            str(e),
                         ],
-                        True if USE_AT_EVERYONE else False,
+                        False,
                     )
                 )
 
+    async def log_to_backend(
+        self,
+        liquidation: Liquidation,
+        reaction_liquidation: Liquidation,
+        price: float,
+        stoploss_price: float,
+        takeprofit_price: float,
+        amount: float,
+        strategy_type: str,
+    ) -> None:
+        """Log the order details to the backend"""
+
+        try:
             if USE_AUTO_JOURNALING:
                 response = None
                 try:
@@ -738,7 +858,7 @@ class Exchange:
                     (
                         DISCORD_CHANNEL_HEARTBEAT_ID,
                         [
-                            "Error logging order:",
+                            "Error logging order to backend:",
                             str(e),
                         ],
                         False,

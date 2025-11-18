@@ -15,38 +15,58 @@ if USE_DISCORD:
     from coinalyze_scanner import INTERVAL, N_MINUTES_TIMEDELTA
     from discord_client import post_to_discord, DISCORD_CHANNEL_HEARTBEAT_ID
     from exchange import (
-        POSITION_PERCENTAGE,
+        USE_FIXED_RISK,
         USE_LIVE_STRATEGY,
-        LIVE_SL_PERCENTAGE,
-        LIVE_TP_PERCENTAGE,
-        LIVE_TRADING_DAYS,
-        LIVE_TRADING_HOURS,
         USE_REVERSED_STRATEGY,
-        REVERSED_SL_PERCENTAGE,
-        REVERSED_TP_PERCENTAGE,
-        REVERSED_TRADING_DAYS,
-        REVERSED_TRADING_HOURS,
         USE_GREY_STRATEGY,
-        GREY_SL_PERCENTAGE,
-        GREY_TP_PERCENTAGE,
-        GREY_TRADING_DAYS,
-        GREY_TRADING_HOURS,
         USE_JOURNALING_STRATEGY,
-        JOURNALING_SL_PERCENTAGE,
-        JOURNALING_TP_PERCENTAGE,
-        JOURNALING_TRADING_DAYS,
-        JOURNALING_TRADING_HOURS,
     )
+    if USE_LIVE_STRATEGY:
+        from exchange import (
+            LIVE_SL_PERCENTAGE,
+            LIVE_TP_PERCENTAGE,
+            LIVE_TRADING_DAYS,
+            LIVE_TRADING_HOURS,
+        )
+    if USE_REVERSED_STRATEGY:
+        from exchange import (
+            REVERSED_SL_PERCENTAGE,
+            REVERSED_TP_PERCENTAGE,
+            REVERSED_TRADING_DAYS,
+            REVERSED_TRADING_HOURS,
+        )
+    if USE_GREY_STRATEGY:
+        from exchange import (
+            GREY_SL_PERCENTAGE,
+            GREY_TP_PERCENTAGE,
+            GREY_TRADING_DAYS,
+            GREY_TRADING_HOURS,
+        )
+    if USE_JOURNALING_STRATEGY:
+        from exchange import (
+            JOURNALING_SL_PERCENTAGE,
+            JOURNALING_TP_PERCENTAGE,
+            JOURNALING_TRADING_DAYS,
+            JOURNALING_TRADING_HOURS,
+        )
     from misc import MINIMAL_NR_OF_LIQUIDATIONS, MINIMAL_LIQUIDATION
 
     DISCORD_SETTINGS = dict(
+        use_fixed_risk=USE_FIXED_RISK,
         leverage=LEVERAGE,
-        position_percentage=POSITION_PERCENTAGE,
         n_minutes_timedelta=N_MINUTES_TIMEDELTA,
         minimal_nr_of_liquidations=MINIMAL_NR_OF_LIQUIDATIONS,
         minimal_liquidation=MINIMAL_LIQUIDATION,
         interval=INTERVAL,
     )
+    
+    if USE_FIXED_RISK:
+        from exchange import FIXED_RISK_EX_FEES
+        DISCORD_SETTINGS["fixed_risk_ex_fees"] = FIXED_RISK_EX_FEES
+    else:
+        from exchange import POSITION_PERCENTAGE
+        DISCORD_SETTINGS["position_percentage"] = POSITION_PERCENTAGE
+    
     if USE_LIVE_STRATEGY:
         DISCORD_SETTINGS["live_sl_percentage"] = LIVE_SL_PERCENTAGE
         DISCORD_SETTINGS["live_tp_percentage"] = LIVE_TP_PERCENTAGE
