@@ -67,7 +67,7 @@ logger.info(f"{USE_LIVE_STRATEGY=}")
 if USE_LIVE_STRATEGY:
     LIVE_SL_PERCENTAGE = config("LIVE_SL_PERCENTAGE", cast=float, default="1")
     logger.info(f"{LIVE_SL_PERCENTAGE=}")
-    LIVE_TP_PERCENTAGE = config("LIVE_TP_PERCENTAGE", cast=float, default="5.0")
+    LIVE_TP_PERCENTAGE = config("LIVE_TP_PERCENTAGE", cast=float, default="4")
     logger.info(f"{LIVE_TP_PERCENTAGE=}")
     LIVE_TRADING_DAYS = config(
         "LIVE_TRADING_DAYS", cast=Csv(int), default="0,1,2,3,4,5,6"
