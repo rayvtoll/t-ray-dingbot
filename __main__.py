@@ -17,8 +17,6 @@ if USE_DISCORD:
     from exchange import (
         USE_FIXED_RISK,
         USE_LIVE_STRATEGY,
-        USE_REVERSED_STRATEGY,
-        USE_GREY_STRATEGY,
         USE_JOURNALING_STRATEGY,
     )
     if USE_LIVE_STRATEGY:
@@ -27,20 +25,6 @@ if USE_DISCORD:
             LIVE_TP_PERCENTAGE,
             LIVE_TRADING_DAYS,
             LIVE_TRADING_HOURS,
-        )
-    if USE_REVERSED_STRATEGY:
-        from exchange import (
-            REVERSED_SL_PERCENTAGE,
-            REVERSED_TP_PERCENTAGE,
-            REVERSED_TRADING_DAYS,
-            REVERSED_TRADING_HOURS,
-        )
-    if USE_GREY_STRATEGY:
-        from exchange import (
-            GREY_SL_PERCENTAGE,
-            GREY_TP_PERCENTAGE,
-            GREY_TRADING_DAYS,
-            GREY_TRADING_HOURS,
         )
     if USE_JOURNALING_STRATEGY:
         from exchange import (
@@ -73,23 +57,11 @@ if USE_DISCORD:
         DISCORD_SETTINGS["live_trading_days"] = LIVE_TRADING_DAYS
         DISCORD_SETTINGS["live_trading_hours"] = LIVE_TRADING_HOURS
 
-    if USE_REVERSED_STRATEGY:
-        DISCORD_SETTINGS["reversed_sl_percentage"] = REVERSED_SL_PERCENTAGE
-        DISCORD_SETTINGS["reversed_tp_percentage"] = REVERSED_TP_PERCENTAGE
-        DISCORD_SETTINGS["reversed_trading_days"] = REVERSED_TRADING_DAYS
-        DISCORD_SETTINGS["reversed_trading_hours"] = REVERSED_TRADING_HOURS
-
     if USE_JOURNALING_STRATEGY:
         DISCORD_SETTINGS["journaling_sl_percentage"] = JOURNALING_SL_PERCENTAGE
         DISCORD_SETTINGS["journaling_tp_percentage"] = JOURNALING_TP_PERCENTAGE
         DISCORD_SETTINGS["journaling_trading_days"] = JOURNALING_TRADING_DAYS
         DISCORD_SETTINGS["journaling_trading_hours"] = JOURNALING_TRADING_HOURS
-    
-    if USE_GREY_STRATEGY:
-        DISCORD_SETTINGS["grey_sl_percentage"] = GREY_SL_PERCENTAGE
-        DISCORD_SETTINGS["grey_tp_percentage"] = GREY_TP_PERCENTAGE
-        DISCORD_SETTINGS["grey_trading_days"] = GREY_TRADING_DAYS
-        DISCORD_SETTINGS["grey_trading_hours"] = GREY_TRADING_HOURS
 
 LIQUIDATIONS: List[Liquidation] = []
 LIQUIDATION_SET: LiquidationSet = LiquidationSet(liquidations=LIQUIDATIONS)
@@ -164,9 +136,6 @@ async def main() -> None:
             await sleep(0.99)
 
         if now.minute % 5 == 4 and now.second == 0:
-
-            # remove old liquidations from the LIQUIDATIONS list
-            exchange.liquidation_set.remove_old_liquidations(now + timedelta(minutes=1))
 
             # recalculate position sizes based on current balance
             await exchange.set_position_sizes()
