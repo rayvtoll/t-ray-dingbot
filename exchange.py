@@ -431,7 +431,7 @@ class Exchange:
                         short_below,
                     )
                 )
-                if USE_DISCORD:
+                if USE_DISCORD and strategy_type != JOURNALING:
                     position_to_enter_log_info = {
                         "long above": f"$ {long_above:,}",
                         "short below": f"$ {short_below:,}",
@@ -480,7 +480,7 @@ class Exchange:
             strategy_type = JOURNALING
             stoploss_percentage = JOURNALING_SL_PERCENTAGE
             takeprofit_percentage = JOURNALING_TP_PERCENTAGE
-            post_to_discord = True  # TODO: change to False later
+            post_to_discord = False
         else:
             logger.info("Outside trading hours/days, not applying strategy.")
             return False
@@ -503,7 +503,7 @@ class Exchange:
                 strategy_type=strategy_type,
             )
 
-        if (USE_DISCORD and post_to_discord) and (strategy_type != JOURNALING):
+        if USE_DISCORD and post_to_discord:
             await self.post_trade_to_discord(
                 direction=direction,
                 liquidation=liquidation,
