@@ -50,7 +50,7 @@ EXCHANGE_CONFIG = {
 }
 
 # trade settings
-LEVERAGE = config("LEVERAGE", cast=int, default="20")
+LEVERAGE = config("LEVERAGE", cast=int, default="10")
 logger.info(f"{LEVERAGE=}")
 USE_FIXED_RISK = config("USE_FIXED_RISK", cast=bool, default=False)
 logger.info(f"{USE_FIXED_RISK=}")
