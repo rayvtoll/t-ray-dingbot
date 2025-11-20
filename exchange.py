@@ -672,7 +672,7 @@ class Exchange:
                     start=f"{self.scanner.now.replace(second=0, microsecond=0)}",
                     entry_price=price,
                     candles_before_entry=1,
-                    side=direction,
+                    side=direction.upper(),
                     amount=amount,
                     take_profit_price=takeprofit_price,
                     stop_loss_price=stoploss_price,
