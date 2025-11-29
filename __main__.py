@@ -1,6 +1,6 @@
 from asyncio import run, sleep
 from copy import deepcopy
-from datetime import datetime, timedelta
+from datetime import datetime
 from logger import logger
 from misc import Liquidation, LiquidationSet
 import threading
@@ -12,13 +12,19 @@ from exchange import Exchange, TICKER, LEVERAGE
 
 
 if USE_DISCORD:
-    from coinalyze_scanner import INTERVAL, N_MINUTES_TIMEDELTA
+    from coinalyze_scanner import (
+        INTERVAL,
+        N_MINUTES_TIMEDELTA,
+        MINIMAL_LIQUIDATION,
+        MINIMAL_NR_OF_LIQUIDATIONS,
+    )
     from discord_client import post_to_discord, DISCORD_CHANNEL_HEARTBEAT_ID
     from exchange import (
         USE_FIXED_RISK,
         USE_LIVE_STRATEGY,
         USE_JOURNALING_STRATEGY,
     )
+
     if USE_LIVE_STRATEGY:
         from exchange import (
             LIVE_SL_PERCENTAGE,
@@ -33,7 +39,6 @@ if USE_DISCORD:
             JOURNALING_TRADING_DAYS,
             JOURNALING_TRADING_HOURS,
         )
-    from misc import MINIMAL_NR_OF_LIQUIDATIONS, MINIMAL_LIQUIDATION
 
     DISCORD_SETTINGS = dict(
         use_fixed_risk=USE_FIXED_RISK,
@@ -43,14 +48,16 @@ if USE_DISCORD:
         minimal_liquidation=MINIMAL_LIQUIDATION,
         interval=INTERVAL,
     )
-    
+
     if USE_FIXED_RISK:
         from exchange import FIXED_RISK_EX_FEES
+
         DISCORD_SETTINGS["fixed_risk_ex_fees"] = FIXED_RISK_EX_FEES
     else:
         from exchange import POSITION_PERCENTAGE
+
         DISCORD_SETTINGS["position_percentage"] = POSITION_PERCENTAGE
-    
+
     if USE_LIVE_STRATEGY:
         DISCORD_SETTINGS["live_sl_percentage"] = LIVE_SL_PERCENTAGE
         DISCORD_SETTINGS["live_tp_percentage"] = LIVE_TP_PERCENTAGE

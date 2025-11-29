@@ -20,6 +20,10 @@ COINALYZE_SECRET_API_KEY = config("COINALYZE_SECRET_API_KEY")
 COINALYZE_LIQUIDATION_URL = "https://api.coinalyze.net/v1/liquidation-history"
 FUTURE_MARKETS_URL = "https://api.coinalyze.net/v1/future-markets"
 
+MINIMAL_NR_OF_LIQUIDATIONS = config("MINIMAL_NR_OF_LIQUIDATIONS", default="1", cast=int)
+logger.info(f"{MINIMAL_NR_OF_LIQUIDATIONS=}")
+MINIMAL_LIQUIDATION = config("MINIMAL_LIQUIDATION", default="2000", cast=int)
+logger.info(f"{MINIMAL_LIQUIDATION=}")
 
 N_MINUTES_TIMEDELTA = config("N_MINUTES_TIMEDELTA", default="5", cast=int)
 logger.info(f"{N_MINUTES_TIMEDELTA=}")
@@ -85,7 +89,10 @@ class CoinalyzeScanner:
                 nr_of_liquidations += 1
 
         discord_liquidations: List[Liquidation] = []
-        if total_long > 1000:
+        if (
+            total_long > MINIMAL_LIQUIDATION
+            and nr_of_liquidations >= MINIMAL_NR_OF_LIQUIDATIONS
+        ):
             long_liquidation = Liquidation(
                 amount=total_long,
                 direction="long",
@@ -93,10 +100,12 @@ class CoinalyzeScanner:
                 nr_of_liquidations=nr_of_liquidations,
                 candle=candle,
             )
-            if long_liquidation.is_valid:
-                self.liquidation_set.liquidations.insert(0, long_liquidation)
-                discord_liquidations.append(long_liquidation)
-        if total_short > 1000:
+            self.liquidation_set.liquidations.insert(0, long_liquidation)
+            discord_liquidations.append(long_liquidation)
+        if (
+            total_short > MINIMAL_LIQUIDATION
+            and nr_of_liquidations >= MINIMAL_NR_OF_LIQUIDATIONS
+        ):
             short_liquidation = Liquidation(
                 amount=total_short,
                 direction="short",
@@ -104,9 +113,8 @@ class CoinalyzeScanner:
                 nr_of_liquidations=nr_of_liquidations,
                 candle=candle,
             )
-            if short_liquidation.is_valid:
-                self.liquidation_set.liquidations.insert(0, short_liquidation)
-                discord_liquidations.append(short_liquidation)
+            self.liquidation_set.liquidations.insert(0, short_liquidation)
+            discord_liquidations.append(short_liquidation)
         if USE_DISCORD and discord_liquidations:
             self.exchange.discord_message_queue.append(
                 (

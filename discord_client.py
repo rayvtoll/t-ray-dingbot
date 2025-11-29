@@ -14,6 +14,7 @@ if USE_DISCORD:
         "DISCORD_CHANNEL_LIQUIDATIONS_ID", cast=int
     )
     DISCORD_CHANNEL_TRADES_ID = config("DISCORD_CHANNEL_TRADES_ID", cast=int)
+    DISCORD_CHANNEL_WAITING_ID = config("DISCORD_CHANNEL_WAITING_ID", cast=int)
     DISCORD_PRIVATE_KEY = config("DISCORD_PRIVATE_KEY")
     USE_AT_EVERYONE = config("USE_AT_EVERYONE", cast=bool, default="true")
 

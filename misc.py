@@ -1,14 +1,7 @@
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from decouple import config
 from logger import logger
-
-
-MINIMAL_NR_OF_LIQUIDATIONS = config("MINIMAL_NR_OF_LIQUIDATIONS", default=3, cast=int)
-logger.info(f"{MINIMAL_NR_OF_LIQUIDATIONS=}")
-MINIMAL_LIQUIDATION = config("MINIMAL_LIQUIDATION", default=10_000, cast=int)
-logger.info(f"{MINIMAL_LIQUIDATION=}")
 
 
 @dataclass
@@ -44,18 +37,6 @@ class Liquidation:
         del liquidation_dict["time"]
         del liquidation_dict["candle"]
         return liquidation_dict
-
-    @property
-    def is_valid(self) -> bool:
-        """Check if the liquidation is valid for trading"""
-        # currently 3 liquidations and a total of > 10k OR >= 1 liquidation and a total
-        # of > 100k
-        if (
-            self.nr_of_liquidations < MINIMAL_NR_OF_LIQUIDATIONS
-            and self.amount < 100_000
-        ) or self.amount < MINIMAL_LIQUIDATION:
-            return False
-        return True
 
 
 @dataclass

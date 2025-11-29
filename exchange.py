@@ -1,6 +1,6 @@
 import ccxt.pro as ccxt
 from coinalyze_scanner import CoinalyzeScanner
-from datetime import timedelta
+from datetime import datetime, timedelta
 from decouple import config, Csv
 from logger import logger
 from misc import Candle, Liquidation, LiquidationSet
@@ -28,6 +28,7 @@ if USE_DISCORD:
         DISCORD_CHANNEL_TRADES_ID,
         DISCORD_CHANNEL_POSITIONS_ID,
         DISCORD_CHANNEL_HEARTBEAT_ID,
+        DISCORD_CHANNEL_WAITING_ID,
     )
 
 USE_AUTO_JOURNALING = config("USE_AUTO_JOURNALING", cast=bool, default="false")
@@ -74,7 +75,7 @@ if USE_LIVE_STRATEGY:
     )
     logger.info(f"{LIVE_TRADING_DAYS=}")
     LIVE_TRADING_HOURS = config(
-        "LIVE_TRADING_HOURS", cast=Csv(int), default="2,3,4,14,15,16"
+        "LIVE_TRADING_HOURS", cast=Csv(int), default="2,3,4,11,12,13,14,15,16,17,18,19"
     )
     logger.info(f"{LIVE_TRADING_HOURS=}")
 
@@ -112,7 +113,8 @@ class Exchange:
             config=EXCHANGE_CONFIG
         )
         self.liquidation_set: LiquidationSet = liquidation_set
-        self.positions_to_open: List[dict] = []
+        self.tp_limit_orders_to_place: List[Tuple] = []
+        self.positions_to_open: List[Tuple] = []
         self.positions: List[dict] = []
         self.market_tpsl_orders: List[dict] = []
         self.limit_orders: List[dict] = []
@@ -386,17 +388,89 @@ class Exchange:
             # are conditions not met to open a position?
             if not (price > price_above) and not (price < price_below):
                 logger.info(
-                    f"Conditions not met to open position: price={price}, price_above={price_above}, price_below={price_below}"
+                    "Conditions not met to open position: "
+                    + f"{price=}, {price_above=}, {price_below=}"
                 )
                 continue
 
             self.positions_to_open.remove(position_to_open)
+            logger.info(
+                f"Conditions met to open {'LONG' if price > price_above else 'SHORT'} "
+                + f"position around {price=}"
+            )
+            if USE_DISCORD and strategy_type != JOURNALING:
+                prive_above_or_below = (
+                    price_above if price > price_above else price_below
+                )
+                self.discord_message_queue.append(
+                    (
+                        DISCORD_CHANNEL_WAITING_ID,
+                        [
+                            ":white_check_mark: Conditions met for entry :rocket:\n\n"
+                            + f"Current price $ {round(price, 2):,} is"
+                            + f" {'above' if price > price_above else 'below'} "
+                            + f"$ {round(prive_above_or_below, 2):,}\n"
+                            + f"Entering {'LONG' if price > price_above else 'SHORT'} "
+                            + "position.",
+                        ],
+                        False,
+                    )
+                )
 
             await self.apply_strategy(
                 strategy_type=strategy_type,
                 liquidation=liquidation,
-                direction=SHORT if price < price_below else LONG,
+                direction=LONG if price > price_above else SHORT,
             )
+
+        for tp_limit_order_to_place in self.tp_limit_orders_to_place:
+            order_id, direction, amount, takeprofit_price = tp_limit_order_to_place
+
+            # check if limit order is filled
+            try:
+
+                # get closed orders info
+                orders_info = await self.exchange.fetch_closed_orders(
+                    symbol=TICKER,
+                    since=int((datetime.now() - timedelta(hours=1)).timestamp() * 1000),
+                    limit=100,
+                )
+
+                # loop over closed orders to find the one matching our limit order
+                for order_info in orders_info:
+                    if (
+                        str(order_info.get("id")) == str(order_id)
+                        and order_info.get("info", {}).get("state") == "filled"
+                    ):
+                        logger.info(f"Limit order filled, time to add take profit")
+                        self.tp_limit_orders_to_place.remove(tp_limit_order_to_place)
+
+                        # add take profit limit order
+                        await self.exchange.create_order(
+                            symbol=TICKER,
+                            type="limit",
+                            side="buy" if direction == SHORT else "sell",
+                            amount=amount,
+                            price=takeprofit_price,
+                            params=dict(
+                                marginMode="isolated",
+                                positionSide=direction,
+                                reduceOnly=True,
+                            ),
+                        )
+            except Exception as e:
+                logger.error(f"Error fetching order info: {e}")
+                if USE_DISCORD:
+                    self.discord_message_queue.append(
+                        (
+                            DISCORD_CHANNEL_HEARTBEAT_ID,
+                            [
+                                "Error fetching closed order info from exchange:",
+                                str(e),
+                            ],
+                            False,
+                        )
+                    )
 
         # loop over detected liquidations
         for liquidation in self.liquidation_set.liquidations:
@@ -439,7 +513,7 @@ class Exchange:
                     logger.info(f"{position_to_enter_log_info=}")
                     self.discord_message_queue.append(
                         (
-                            DISCORD_CHANNEL_TRADES_ID,
+                            DISCORD_CHANNEL_WAITING_ID,
                             [
                                 f":hourglass: Waiting for entry :pencil:\n\n",
                                 get_discord_table(position_to_enter_log_info),
@@ -572,6 +646,7 @@ class Exchange:
         """
 
         logger.info(f"Placing {direction} order")
+        order = None
 
         try:
             price = await self.get_price()
@@ -583,7 +658,7 @@ class Exchange:
             stoploss_price, takeprofit_price = await self.get_sl_and_tp_price(
                 direction, price, stoploss_percentage, takeprofit_percentage
             )
-            order = await self.exchange.create_order(
+            order: dict = await self.exchange.create_order(
                 symbol=TICKER,
                 type="limit",
                 side="buy" if direction == LONG else "sell",
@@ -593,8 +668,12 @@ class Exchange:
                     marginMode="isolated",
                     positionSide=direction,
                     stopLoss=dict(reduceOnly=True, triggerPrice=stoploss_price),
-                    takeProfit=dict(reduceOnly=True, triggerPrice=takeprofit_price),
                 ),
+            )
+
+            # add to tp limit orders to place list
+            self.tp_limit_orders_to_place.append(
+                (order.get("id"), direction, amount, takeprofit_price)
             )
         except Exception as e:
             logger.error(f"Error placing order: {e}")
