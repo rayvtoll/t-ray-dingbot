@@ -36,6 +36,7 @@ class Liquidation:
         liquidation_dict["volume"] = self.candle.volume
         del liquidation_dict["time"]
         del liquidation_dict["candle"]
+        del liquidation_dict["time_frame"]
         return liquidation_dict
 
 

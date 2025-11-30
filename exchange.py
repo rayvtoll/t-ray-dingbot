@@ -75,7 +75,9 @@ if USE_LIVE_STRATEGY:
     )
     logger.info(f"{LIVE_TRADING_DAYS=}")
     LIVE_TRADING_HOURS = config(
-        "LIVE_TRADING_HOURS", cast=Csv(int), default="2,3,4,11,12,13,14,15,16,17,18,19"
+        "LIVE_TRADING_HOURS",
+        cast=Csv(int),
+        default="2,3,4,10,11,12,13,14,15,16,17,18,19",
     )
     logger.info(f"{LIVE_TRADING_HOURS=}")
 
@@ -116,7 +118,7 @@ class Exchange:
         self.tp_limit_orders_to_place: List[Tuple] = []
         self.positions_to_open: List[Tuple] = []
         self.positions: List[dict] = []
-        self.market_tpsl_orders: List[dict] = []
+        self.market_sl_orders: List[dict] = []
         self.limit_orders: List[dict] = []
         self.scanner: CoinalyzeScanner = scanner
         self.discord_message_queue: List[Tuple[int, List[str], bool]] = []
@@ -154,18 +156,13 @@ class Exchange:
         # get open market tpsl orders
         try:
             open_orders = await self.exchange.fetch_open_orders(params={"tpsl": True})
-            market_tpsl_orders_info = [
+            market_sl_orders_info = [
                 {
                     "amount": f"{order.get("info", {}).get("size")} contract(s)",
                     "direction": order.get("info", {}).get("positionSide", ""),
-                    "stoploss": (
+                    "price": (
                         f"$ {round(float(order.get("info", {}).get("slTriggerPrice", 0.0)), 2):,}"
                         if order.get("info", {}).get("slTriggerPrice")
-                        else "-"
-                    ),
-                    "takeprofit": (
-                        f"$ {round(float(order.get("info", {}).get("tpTriggerPrice", 0.0)), 2):,}"
-                        if order.get("info", {}).get("tpTriggerPrice")
                         else "-"
                     ),
                 }
@@ -173,7 +170,7 @@ class Exchange:
             ]
         except Exception as e:
             logger.error(f"Error fetching open orders: {e}")
-            market_tpsl_orders_info = []
+            market_sl_orders_info = []
             if USE_DISCORD:
                 self.discord_message_queue.append(
                     (
@@ -192,7 +189,6 @@ class Exchange:
             limit_orders_info = [
                 {
                     "amount": f"{order.get("amount", 0.0)} contract(s)",
-                    "orderType": order.get("info", {}).get("orderType", ""),
                     "direction": order.get("info", {}).get("side", ""),
                     "price": f"$ {round(float(order.get("info", {}).get("price", 0.0)), 2):,}",
                 }
@@ -216,23 +212,36 @@ class Exchange:
         # only log and post to discord if there are changes
         if (
             self.positions != open_positions
-            or self.market_tpsl_orders != market_tpsl_orders_info
+            or self.market_sl_orders != market_sl_orders_info
             or self.limit_orders != limit_orders_info
         ):
-            self.market_tpsl_orders = market_tpsl_orders_info
+            self.market_sl_orders = market_sl_orders_info
             self.limit_orders = limit_orders_info
             self.positions = open_positions
-            if not any(self.market_tpsl_orders or self.limit_orders or self.positions):
+            if not any(self.market_sl_orders or self.limit_orders or self.positions):
                 open_positions_and_orders = ["No open positions / orders."]
             else:
                 open_positions_and_orders = (
                     ["Position(s):"]
-                    + [get_discord_table(position) for position in self.positions]
-                    + ["Market TP/SL order(s):"]
-                    + [get_discord_table(order) for order in self.market_tpsl_orders]
+                    + (
+                        [get_discord_table(position) for position in self.positions]
+                        if self.positions
+                        else ["```-```"]
+                    )
+                    + ["Market SL order(s):"]
+                    + (
+                        [get_discord_table(order) for order in self.market_sl_orders]
+                        if self.market_sl_orders
+                        else ["```-```"]
+                    )
                     + ["Limit order(s):"]
-                    + [get_discord_table(order) for order in self.limit_orders]
+                    + (
+                        [get_discord_table(order) for order in self.limit_orders]
+                        if self.limit_orders
+                        else ["```-```"]
+                    )
                 )
+
             logger.info(f"{open_positions_and_orders=}")
             if USE_DISCORD:
                 self.discord_message_queue.append(
@@ -406,12 +415,10 @@ class Exchange:
                     (
                         DISCORD_CHANNEL_WAITING_ID,
                         [
-                            ":white_check_mark: Conditions met for entry :rocket:\n\n"
-                            + f"Current price $ {round(price, 2):,} is"
-                            + f" {'above' if price > price_above else 'below'} "
-                            + f"$ {round(prive_above_or_below, 2):,}\n"
-                            + f"Entering {'LONG' if price > price_above else 'SHORT'} "
-                            + "position.",
+                            f"$ {round(price, 2):,} "
+                            + (">" if price > price_above else "<")
+                            + f" $ {round(prive_above_or_below, 2):,} → "
+                            + ("LONG" if price > price_above else "SHORT"),
                         ],
                         False,
                     )
@@ -515,7 +522,6 @@ class Exchange:
                         (
                             DISCORD_CHANNEL_WAITING_ID,
                             [
-                                f":hourglass: Waiting for entry :pencil:\n\n",
                                 get_discord_table(position_to_enter_log_info),
                             ],
                             True if USE_AT_EVERYONE else False,
@@ -580,7 +586,6 @@ class Exchange:
         if USE_DISCORD and post_to_discord:
             await self.post_trade_to_discord(
                 direction=direction,
-                liquidation=liquidation,
                 price=price,
                 stoploss_price=stoploss_price,
                 takeprofit_price=takeprofit_price,
@@ -693,7 +698,6 @@ class Exchange:
     async def post_trade_to_discord(
         self,
         direction: str,
-        liquidation: Liquidation,
         price: float,
         stoploss_price: float,
         takeprofit_price: float,
@@ -703,6 +707,7 @@ class Exchange:
         try:
             order_log_info = dict(
                 amount=f"{amount} contract(s)",
+                direction=direction,
                 price=f"$ {round(price, 2):,}",
                 stop_loss=f"$ {round(stoploss_price, 2):,}",
                 take_profit=f"$ {round(takeprofit_price, 2):,}",
@@ -712,7 +717,6 @@ class Exchange:
                 (
                     DISCORD_CHANNEL_TRADES_ID,
                     [
-                        f":bar_chart: New {direction} :rocket::fire:",
                         f"{get_discord_table(order_log_info)}",
                     ],
                     True if USE_AT_EVERYONE else False,
