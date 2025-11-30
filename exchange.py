@@ -136,8 +136,8 @@ class Exchange:
                 {
                     "amount": f"{position.get("info", {}).get("positions")} contract(s)",
                     "direction": position.get("info", {}).get("positionSide", ""),
-                    "price": f"$ {round(float(position.get("info", {}).get("averagePrice", 0.0)), 2):,}",
-                    "liquidation_price": f"$ {round(float(position.get("info", {}).get("liquidationPrice", 0.0)), 2):,}",
+                    "price": f"$ {round(float(position.get("info", {}).get("averagePrice", 0.0)), EXCHANGE_PRICE_PRECISION):,}",
+                    "liquidation_price": f"$ {round(float(position.get("info", {}).get("liquidationPrice", 0.0)), EXCHANGE_PRICE_PRECISION):,}",
                 }
                 for position in positions
             ]
@@ -164,7 +164,7 @@ class Exchange:
                     "amount": f"{order.get("info", {}).get("size")} contract(s)",
                     "direction": order.get("info", {}).get("positionSide", ""),
                     "price": (
-                        f"$ {round(float(order.get("info", {}).get("slTriggerPrice", 0.0)), 2):,}"
+                        f"$ {round(float(order.get("info", {}).get("slTriggerPrice", 0.0)), EXCHANGE_PRICE_PRECISION):,}"
                         if order.get("info", {}).get("slTriggerPrice")
                         else "-"
                     ),
@@ -193,7 +193,7 @@ class Exchange:
                 {
                     "amount": f"{order.get("amount", 0.0)} contract(s)",
                     "direction": order.get("info", {}).get("side", ""),
-                    "price": f"$ {round(float(order.get("info", {}).get("price", 0.0)), 2):,}",
+                    "price": f"$ {round(float(order.get("info", {}).get("price", 0.0)), EXCHANGE_PRICE_PRECISION):,}",
                 }
                 for order in open_orders
             ]
@@ -718,9 +718,9 @@ class Exchange:
             order_log_info = dict(
                 amount=f"{amount} contract(s)",
                 direction=direction,
-                price=f"$ {round(price, 2):,}",
-                stop_loss=f"$ {round(stoploss_price, 2):,}",
-                take_profit=f"$ {round(takeprofit_price, 2):,}",
+                price=f"$ {round(price, EXCHANGE_PRICE_PRECISION):,}",
+                stop_loss=f"$ {round(stoploss_price, EXCHANGE_PRICE_PRECISION):,}",
+                take_profit=f"$ {round(takeprofit_price, EXCHANGE_PRICE_PRECISION):,}",
             )
             logger.info(f"{order_log_info=}")
             self.discord_message_queue.append(
