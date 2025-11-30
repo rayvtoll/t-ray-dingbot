@@ -11,6 +11,9 @@ from discord_client import USE_DISCORD
 
 
 TICKER: str = "BTC/USDT:USDT"
+EXCHANGE_PRICE_PRECISION: int = config(
+    "EXCHANGE_PRICE_PRECISION", cast=int, default="1"
+)
 
 # Strategy types
 LIVE = "live"
@@ -411,15 +414,18 @@ class Exchange:
                 prive_above_or_below = (
                     price_above if price > price_above else price_below
                 )
+                entering_position_log_info = {
+                    "price": (
+                        f"$ {round(price, EXCHANGE_PRICE_PRECISION):,}"
+                        + ("above" if price > price_above else "below")
+                        + f" $ {round(prive_above_or_below, EXCHANGE_PRICE_PRECISION):,}"
+                    ),
+                    "entering": ("long" if price > price_above else "short"),
+                }
                 self.discord_message_queue.append(
                     (
                         DISCORD_CHANNEL_WAITING_ID,
-                        [
-                            f"$ {round(price, 2):,} "
-                            + (">" if price > price_above else "<")
-                            + f" $ {round(prive_above_or_below, 2):,} → "
-                            + ("LONG" if price > price_above else "SHORT"),
-                        ],
+                        [get_discord_table(entering_position_log_info)],
                         False,
                     )
                 )
@@ -502,8 +508,8 @@ class Exchange:
                         "Outside trading hours/days, not adding position to open."
                     )
                     continue
-                long_above = round(price * 1.005, 1)
-                short_below = round(price * 0.995, 1)
+                long_above = round(price * 1.005, EXCHANGE_PRICE_PRECISION)
+                short_below = round(price * 0.995, EXCHANGE_PRICE_PRECISION)
                 self.positions_to_open.append(
                     (
                         strategy_type,
@@ -605,14 +611,18 @@ class Exchange:
         direction"""
 
         stoploss_price = (
-            round(price * (1 - (stoploss_percentage / 100)), 1)
+            round(price * (1 - (stoploss_percentage / 100)), EXCHANGE_PRICE_PRECISION)
             if direction == LONG
-            else round(price * (1 + (stoploss_percentage / 100)), 1)
+            else round(
+                price * (1 + (stoploss_percentage / 100)), EXCHANGE_PRICE_PRECISION
+            )
         )
         takeprofit_price = (
-            round(price * (1 + (takeprofit_percentage / 100)), 1)
+            round(price * (1 + (takeprofit_percentage / 100)), EXCHANGE_PRICE_PRECISION)
             if direction == LONG
-            else round(price * (1 - (takeprofit_percentage / 100)), 1)
+            else round(
+                price * (1 - (takeprofit_percentage / 100)), EXCHANGE_PRICE_PRECISION
+            )
         )
         return stoploss_price, takeprofit_price
 
@@ -656,9 +666,9 @@ class Exchange:
         try:
             price = await self.get_price()
             price = (
-                round(price * 1.0001, 1)
+                round(price * 1.0001, EXCHANGE_PRICE_PRECISION)
                 if direction == SHORT
-                else round(price * 0.9999, 1)
+                else round(price * 0.9999, EXCHANGE_PRICE_PRECISION)
             )
             stoploss_price, takeprofit_price = await self.get_sl_and_tp_price(
                 direction, price, stoploss_percentage, takeprofit_percentage
