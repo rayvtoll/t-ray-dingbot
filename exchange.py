@@ -54,7 +54,7 @@ EXCHANGE_CONFIG = {
 }
 
 # trade settings
-LEVERAGE = config("LEVERAGE", cast=int, default="10")
+LEVERAGE = config("LEVERAGE", cast=int, default="25")
 logger.info(f"{LEVERAGE=}")
 USE_FIXED_RISK = config("USE_FIXED_RISK", cast=bool, default=False)
 logger.info(f"{USE_FIXED_RISK=}")
@@ -416,7 +416,7 @@ class Exchange:
                 )
                 entering_position_log_info = {
                     "price": (
-                        f"$ {round(price, EXCHANGE_PRICE_PRECISION):,}"
+                        f"$ {round(price, EXCHANGE_PRICE_PRECISION):,} is "
                         + ("above" if price > price_above else "below")
                         + f" $ {round(prive_above_or_below, EXCHANGE_PRICE_PRECISION):,}"
                     ),
