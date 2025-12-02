@@ -436,9 +436,7 @@ class Exchange:
                 direction=LONG if price > price_above else SHORT,
             )
 
-        for tp_limit_order_to_place in self.tp_limit_orders_to_place:
-            order_id, direction, amount, takeprofit_price = tp_limit_order_to_place
-
+        if self.tp_limit_orders_to_place:
             # check if limit order is filled
             try:
 
@@ -449,29 +447,8 @@ class Exchange:
                     limit=100,
                 )
 
-                # loop over closed orders to find the one matching our limit order
-                for order_info in orders_info:
-                    if (
-                        str(order_info.get("id")) == str(order_id)
-                        and order_info.get("info", {}).get("state") == "filled"
-                    ):
-                        logger.info(f"Limit order filled, time to add take profit")
-                        self.tp_limit_orders_to_place.remove(tp_limit_order_to_place)
-
-                        # add take profit limit order
-                        await self.exchange.create_order(
-                            symbol=TICKER,
-                            type="limit",
-                            side="buy" if direction == SHORT else "sell",
-                            amount=amount,
-                            price=takeprofit_price,
-                            params=dict(
-                                marginMode="isolated",
-                                positionSide=direction,
-                                reduceOnly=True,
-                            ),
-                        )
             except Exception as e:
+                orders_info = []
                 logger.error(f"Error fetching order info: {e}")
                 if USE_DISCORD:
                     self.discord_message_queue.append(
@@ -484,6 +461,46 @@ class Exchange:
                             False,
                         )
                     )
+
+            for tp_limit_order_to_place in self.tp_limit_orders_to_place:
+                order_id, direction, amount, takeprofit_price = tp_limit_order_to_place
+
+                # loop over closed orders to find the one matching our limit order
+                for order_info in orders_info:
+                    if (
+                        str(order_info.get("id")) == str(order_id)
+                        and order_info.get("info", {}).get("state") == "filled"
+                    ):
+                        logger.info(f"Limit order filled, time to add take profit")
+                        self.tp_limit_orders_to_place.remove(tp_limit_order_to_place)
+
+                        # add take profit limit order
+                        try:
+                            await self.exchange.create_order(
+                                symbol=TICKER,
+                                type="limit",
+                                side="buy" if direction == SHORT else "sell",
+                                amount=amount,
+                                price=takeprofit_price,
+                                params=dict(
+                                    marginMode="isolated",
+                                    positionSide=direction,
+                                    reduceOnly=True,
+                                ),
+                            )
+                        except Exception as e:
+                            logger.error(f"Error creating take profit order: {e}")
+                            if USE_DISCORD:
+                                self.discord_message_queue.append(
+                                    (
+                                        DISCORD_CHANNEL_HEARTBEAT_ID,
+                                        [
+                                            "Error creating take profit order on exchange:",
+                                            str(e),
+                                        ],
+                                        False,
+                                    )
+                                )
 
         # loop over detected liquidations
         for liquidation in self.liquidation_set.liquidations:
