@@ -2,7 +2,7 @@ from asyncio import run, sleep
 from copy import deepcopy
 from datetime import datetime
 from logger import logger
-from misc import Liquidation, LiquidationSet
+from misc import DiscordMessage, Liquidation, LiquidationSet
 import threading
 from typing import List
 
@@ -101,10 +101,11 @@ async def main() -> None:
     if USE_DISCORD:
         DISCORD_SETTINGS["symbols"] = scanner.symbols.split(",")
         exchange.discord_message_queue.append(
-            (
-                DISCORD_CHANNEL_HEARTBEAT_ID,
-                [f"{info} with settings:\n{get_discord_table(DISCORD_SETTINGS)}"],
-                False,
+            DiscordMessage(
+                channel_id=DISCORD_CHANNEL_HEARTBEAT_ID,
+                messages=[
+                    f"{info} with settings:\n{get_discord_table(DISCORD_SETTINGS)}"
+                ],
             )
         )
 
@@ -153,7 +154,7 @@ async def main() -> None:
 
             # send heartbeat message to discord
             exchange.discord_message_queue.append(
-                (DISCORD_CHANNEL_HEARTBEAT_ID, ["."], False)
+                DiscordMessage(channel_id=DISCORD_CHANNEL_HEARTBEAT_ID, messages=["."])
             )
 
             await sleep(0.99)

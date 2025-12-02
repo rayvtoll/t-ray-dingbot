@@ -1,6 +1,7 @@
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import List
 from logger import logger
 
 
@@ -82,3 +83,32 @@ class LiquidationSet:
         except Exception as e:
             logger.error(f"Error removing old liquidations: {e}")
             self.liquidations = []
+
+
+@dataclass
+class PositionToOpen:
+    """PositionToOpen class to hold the position to open data"""
+
+    strategy_type: str
+    liquidation: Liquidation
+    long_above: float
+    short_below: float
+
+
+@dataclass
+class DiscordMessage:
+    """DiscordMessage class to hold the discord message data"""
+
+    channel_id: int
+    messages: List[str]
+    at_everyone: bool = False
+
+
+@dataclass
+class TPLimitOrderToPlace:
+    """TPLimitOrderToPlace class to hold the take profit limit order data"""
+
+    order_id: str
+    direction: str
+    amount: float
+    takeprofit_price: float

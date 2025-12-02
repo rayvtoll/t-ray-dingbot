@@ -11,7 +11,7 @@ if USE_DISCORD:
         DISCORD_CHANNEL_HEARTBEAT_ID,
     )
 from logger import logger
-from misc import Candle, Liquidation, LiquidationSet
+from misc import Candle, DiscordMessage, Liquidation, LiquidationSet
 import requests
 from typing import List
 
@@ -117,13 +117,12 @@ class CoinalyzeScanner:
             discord_liquidations.append(short_liquidation)
         if USE_DISCORD and discord_liquidations:
             self.exchange.discord_message_queue.append(
-                (
-                    DISCORD_CHANNEL_LIQUIDATIONS_ID,
-                    [
+                DiscordMessage(
+                    channel_id=DISCORD_CHANNEL_LIQUIDATIONS_ID,
+                    messages=[
                         get_discord_table(liquidation.to_dict())
                         for liquidation in discord_liquidations
                     ],
-                    False,
                 )
             )
 
@@ -149,13 +148,12 @@ class CoinalyzeScanner:
             logger.error(str(e))
             if USE_DISCORD:
                 self.exchange.discord_message_queue.append(
-                    (
-                        DISCORD_CHANNEL_HEARTBEAT_ID,
-                        [
+                    DiscordMessage(
+                        channel_id=DISCORD_CHANNEL_HEARTBEAT_ID,
+                        messages=[
                             "Error fetching liquidations from Coinalyze:",
                             str(e),
                         ],
-                        False,
                     )
                 )
             return []

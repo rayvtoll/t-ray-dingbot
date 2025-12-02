@@ -3,7 +3,14 @@ from coinalyze_scanner import CoinalyzeScanner
 from datetime import datetime, timedelta
 from decouple import config, Csv
 from logger import logger
-from misc import Candle, Liquidation, LiquidationSet
+from misc import (
+    Candle,
+    DiscordMessage,
+    Liquidation,
+    LiquidationSet,
+    PositionToOpen,
+    TPLimitOrderToPlace,
+)
 import requests
 from typing import List, Tuple
 
@@ -118,13 +125,13 @@ class Exchange:
             config=EXCHANGE_CONFIG
         )
         self.liquidation_set: LiquidationSet = liquidation_set
-        self.tp_limit_orders_to_place: List[Tuple] = []
-        self.positions_to_open: List[Tuple] = []
+        self.tp_limit_orders_to_place: List[TPLimitOrderToPlace] = []
+        self.positions_to_open: List[PositionToOpen] = []
         self.positions: List[dict] = []
         self.market_sl_orders: List[dict] = []
         self.limit_orders: List[dict] = []
         self.scanner: CoinalyzeScanner = scanner
-        self.discord_message_queue: List[Tuple[int, List[str], bool]] = []
+        self.discord_message_queue: List[DiscordMessage] = []
 
     async def get_open_positions(self) -> List[dict]:
         """Get open positions from the exchange"""
@@ -146,13 +153,12 @@ class Exchange:
             open_positions = []
             if USE_DISCORD:
                 self.discord_message_queue.append(
-                    (
-                        DISCORD_CHANNEL_HEARTBEAT_ID,
-                        [
+                    DiscordMessage(
+                        channel_id=DISCORD_CHANNEL_HEARTBEAT_ID,
+                        messages=[
                             "Error fetching positions from exchange:",
                             str(e),
                         ],
-                        False,
                     )
                 )
 
@@ -176,13 +182,12 @@ class Exchange:
             market_sl_orders_info = []
             if USE_DISCORD:
                 self.discord_message_queue.append(
-                    (
-                        DISCORD_CHANNEL_HEARTBEAT_ID,
-                        [
+                    DiscordMessage(
+                        channel_id=DISCORD_CHANNEL_HEARTBEAT_ID,
+                        messages=[
                             "Error fetching open orders from exchange:",
                             str(e),
                         ],
-                        False,
                     )
                 )
 
@@ -202,13 +207,12 @@ class Exchange:
             limit_orders_info = []
             if USE_DISCORD:
                 self.discord_message_queue.append(
-                    (
-                        DISCORD_CHANNEL_HEARTBEAT_ID,
-                        [
+                    DiscordMessage(
+                        channel_id=DISCORD_CHANNEL_HEARTBEAT_ID,
+                        messages=[
                             "Error fetching open limit orders from exchange:",
                             str(e),
                         ],
-                        False,
                     )
                 )
 
@@ -248,7 +252,10 @@ class Exchange:
             logger.info(f"{open_positions_and_orders=}")
             if USE_DISCORD:
                 self.discord_message_queue.append(
-                    (DISCORD_CHANNEL_POSITIONS_ID, open_positions_and_orders, False)
+                    DiscordMessage(
+                        channel_id=DISCORD_CHANNEL_POSITIONS_ID,
+                        messages=open_positions_and_orders,
+                    )
                 )
 
     async def set_leverage(self, symbol: str, leverage: int, direction: str) -> None:
@@ -283,13 +290,12 @@ class Exchange:
             logger.error(f"Error fetching ohlcv: {e}")
             if USE_DISCORD:
                 self.discord_message_queue.append(
-                    (
-                        DISCORD_CHANNEL_HEARTBEAT_ID,
-                        [
+                    DiscordMessage(
+                        channel_id=DISCORD_CHANNEL_HEARTBEAT_ID,
+                        messages=[
                             "Error fetching ohlcv from exchange:",
                             str(e),
                         ],
-                        False,
                     )
                 )
             return None
@@ -328,13 +334,12 @@ class Exchange:
             logger.error(f"Error setting position size: {e}")
             if USE_DISCORD:
                 self.discord_message_queue.append(
-                    (
-                        DISCORD_CHANNEL_HEARTBEAT_ID,
-                        [
+                    DiscordMessage(
+                        channel_id=DISCORD_CHANNEL_HEARTBEAT_ID,
+                        messages=[
                             "Error setting position size:",
                             str(e),
                         ],
-                        False,
                     )
                 )
 
@@ -395,80 +400,84 @@ class Exchange:
             return
 
         for position_to_open in self.positions_to_open:
-            strategy_type, liquidation, price_above, price_below = position_to_open
 
             # are conditions not met to open a position?
-            if not (price > price_above) and not (price < price_below):
+            if not (price > position_to_open.long_above) and not (
+                price < position_to_open.short_below
+            ):
                 logger.info(
                     "Conditions not met to open position: "
-                    + f"{price=}, {price_above=}, {price_below=}"
+                    + f"{price=}, {position_to_open.long_above=}, {position_to_open.short_below=}"
                 )
                 continue
 
             self.positions_to_open.remove(position_to_open)
             logger.info(
-                f"Conditions met to open {'LONG' if price > price_above else 'SHORT'} "
+                f"Conditions met to open {'LONG' if price > position_to_open.long_above else 'SHORT'} "
                 + f"position around {price=}"
             )
-            if USE_DISCORD and strategy_type != JOURNALING:
+            if USE_DISCORD and position_to_open.strategy_type != JOURNALING:
                 prive_above_or_below = (
-                    price_above if price > price_above else price_below
+                    position_to_open.long_above
+                    if price > position_to_open.long_above
+                    else position_to_open.short_below
                 )
                 entering_position_log_info = {
                     "price": (
                         f"$ {round(price, EXCHANGE_PRICE_PRECISION):,} is "
-                        + ("above" if price > price_above else "below")
+                        + ("above" if price > position_to_open.long_above else "below")
                         + f" $ {round(prive_above_or_below, EXCHANGE_PRICE_PRECISION):,}"
                     ),
-                    "entering": ("long" if price > price_above else "short"),
+                    "entering": (
+                        "long" if price > position_to_open.long_above else "short"
+                    ),
                 }
                 self.discord_message_queue.append(
-                    (
-                        DISCORD_CHANNEL_WAITING_ID,
-                        [get_discord_table(entering_position_log_info)],
-                        False,
+                    DiscordMessage(
+                        channel_id=DISCORD_CHANNEL_WAITING_ID,
+                        messages=[get_discord_table(entering_position_log_info)],
                     )
                 )
 
             await self.apply_strategy(
-                strategy_type=strategy_type,
-                liquidation=liquidation,
-                direction=LONG if price > price_above else SHORT,
+                strategy_type=position_to_open.strategy_type,
+                liquidation=position_to_open.liquidation,
+                direction=LONG if price > position_to_open.long_above else SHORT,
             )
 
         if self.tp_limit_orders_to_place:
+
             # check if limit order is filled
             try:
-
                 # get closed orders info
                 orders_info = await self.exchange.fetch_closed_orders(
                     symbol=TICKER,
-                    since=int((datetime.now() - timedelta(hours=1)).timestamp() * 1000),
+                    since=int(
+                        (datetime.now() - timedelta(hours=12)).timestamp() * 1000
+                    ),
                     limit=100,
                 )
-
             except Exception as e:
                 orders_info = []
                 logger.error(f"Error fetching order info: {e}")
                 if USE_DISCORD:
                     self.discord_message_queue.append(
-                        (
-                            DISCORD_CHANNEL_HEARTBEAT_ID,
-                            [
+                        DiscordMessage(
+                            channel_id=DISCORD_CHANNEL_HEARTBEAT_ID,
+                            messages=[
                                 "Error fetching closed order info from exchange:",
                                 str(e),
                             ],
-                            False,
                         )
                     )
 
             for tp_limit_order_to_place in self.tp_limit_orders_to_place:
-                order_id, direction, amount, takeprofit_price = tp_limit_order_to_place
 
                 # loop over closed orders to find the one matching our limit order
                 for order_info in orders_info:
                     if (
-                        str(order_info.get("id")) == str(order_id)
+                        str(order_info.get("id"))
+                        == str(tp_limit_order_to_place.order_id)
                         and order_info.get("info", {}).get("state") == "filled"
                     ):
                         logger.info(f"Limit order filled, time to add take profit")
@@ -479,26 +488,29 @@ class Exchange:
                             await self.exchange.create_order(
                                 symbol=TICKER,
                                 type="limit",
-                                side="buy" if direction == SHORT else "sell",
-                                amount=amount,
-                                price=takeprofit_price,
+                                side=(
+                                    "buy"
+                                    if tp_limit_order_to_place.direction == SHORT
+                                    else "sell"
+                                ),
+                                amount=tp_limit_order_to_place.amount,
+                                price=tp_limit_order_to_place.takeprofit_price,
                                 params=dict(
                                     marginMode="isolated",
-                                    positionSide=direction,
+                                    positionSide=tp_limit_order_to_place.direction,
                                     reduceOnly=True,
                                 ),
                             )
                         except Exception as e:
-                            logger.error(f"Error creating take profit order: {e}")
+                            logger.error(f"Error placing take profit order: {e}")
                             if USE_DISCORD:
                                 self.discord_message_queue.append(
-                                    (
-                                        DISCORD_CHANNEL_HEARTBEAT_ID,
-                                        [
-                                            "Error creating take profit order on exchange:",
+                                    DiscordMessage(
+                                        channel_id=DISCORD_CHANNEL_HEARTBEAT_ID,
+                                        messages=[
+                                            "Error placing take profit order:",
                                             str(e),
                                         ],
-                                        False,
                                     )
                                 )
 
@@ -528,11 +540,11 @@ class Exchange:
                 long_above = round(price * 1.005, EXCHANGE_PRICE_PRECISION)
                 short_below = round(price * 0.995, EXCHANGE_PRICE_PRECISION)
                 self.positions_to_open.append(
-                    (
-                        strategy_type,
-                        liquidation,
-                        long_above,
-                        short_below,
+                    PositionToOpen(
+                        strategy_type=strategy_type,
+                        liquidation=liquidation,
+                        long_above=long_above,
+                        short_below=short_below,
                     )
                 )
                 if USE_DISCORD and strategy_type != JOURNALING:
@@ -542,12 +554,12 @@ class Exchange:
                     }
                     logger.info(f"{position_to_enter_log_info=}")
                     self.discord_message_queue.append(
-                        (
-                            DISCORD_CHANNEL_WAITING_ID,
-                            [
+                        DiscordMessage(
+                            channel_id=DISCORD_CHANNEL_WAITING_ID,
+                            messages=[
                                 get_discord_table(position_to_enter_log_info),
                             ],
-                            True if USE_AT_EVERYONE else False,
+                            at_everyone=USE_AT_EVERYONE,
                         )
                     )
         self.liquidation_set.liquidations.clear()
@@ -653,13 +665,12 @@ class Exchange:
             logger.error(f"Error fetching ticker: {e}")
             if USE_DISCORD:
                 self.discord_message_queue.append(
-                    (
-                        DISCORD_CHANNEL_HEARTBEAT_ID,
-                        [
+                    DiscordMessage(
+                        channel_id=DISCORD_CHANNEL_HEARTBEAT_ID,
+                        messages=[
                             "Error fetching ticker from exchange:",
                             str(e),
                         ],
-                        False,
                     )
                 )
             return None
@@ -705,19 +716,23 @@ class Exchange:
 
             # add to tp limit orders to place list
             self.tp_limit_orders_to_place.append(
-                (order.get("id"), direction, amount, takeprofit_price)
+                TPLimitOrderToPlace(
+                    order_id=str(order.get("id")),
+                    direction=direction,
+                    amount=amount,
+                    takeprofit_price=takeprofit_price,
+                )
             )
         except Exception as e:
             logger.error(f"Error placing order: {e}")
             if USE_DISCORD:
                 self.discord_message_queue.append(
-                    (
-                        DISCORD_CHANNEL_HEARTBEAT_ID,
-                        [
+                    DiscordMessage(
+                        channel_id=DISCORD_CHANNEL_HEARTBEAT_ID,
+                        messages=[
                             "Error placing order:",
                             str(e),
                         ],
-                        False,
                     )
                 )
         return price, stoploss_price, takeprofit_price
@@ -741,25 +756,24 @@ class Exchange:
             )
             logger.info(f"{order_log_info=}")
             self.discord_message_queue.append(
-                (
-                    DISCORD_CHANNEL_TRADES_ID,
-                    [
+                DiscordMessage(
+                    channel_id=DISCORD_CHANNEL_TRADES_ID,
+                    messages=[
                         f"{get_discord_table(order_log_info)}",
                     ],
-                    True if USE_AT_EVERYONE else False,
+                    at_everyone=USE_AT_EVERYONE,
                 )
             )
         except Exception as e:
             logger.error(f"Error posting order to discord: {e}")
             if USE_DISCORD:
                 self.discord_message_queue.append(
-                    (
-                        DISCORD_CHANNEL_HEARTBEAT_ID,
-                        [
+                    DiscordMessage(
+                        channel_id=DISCORD_CHANNEL_HEARTBEAT_ID,
+                        messages=[
                             "Error logging order:",
                             str(e),
                         ],
-                        False,
                     )
                 )
 
@@ -806,13 +820,12 @@ class Exchange:
                 logger.error(f"Error journaling position 2/2: {e}")
                 if USE_DISCORD:
                     self.discord_message_queue.append(
-                        (
-                            DISCORD_CHANNEL_HEARTBEAT_ID,
-                            [
+                        DiscordMessage(
+                            channel_id=DISCORD_CHANNEL_HEARTBEAT_ID,
+                            messages=[
                                 "Error journaling position:",
                                 str(e),
                             ],
-                            False,
                         )
                     )
 
@@ -820,12 +833,11 @@ class Exchange:
             logger.error(f"Error logging order: {e}")
             if USE_DISCORD:
                 self.discord_message_queue.append(
-                    (
-                        DISCORD_CHANNEL_HEARTBEAT_ID,
-                        [
+                    DiscordMessage(
+                        channel_id=DISCORD_CHANNEL_HEARTBEAT_ID,
+                        messages=[
                             "Error logging order to backend:",
                             str(e),
                         ],
-                        False,
                     )
                 )
