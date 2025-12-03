@@ -228,8 +228,10 @@ class Exchange:
             if not any(self.market_sl_orders or self.limit_orders or self.positions):
                 open_positions_and_orders = ["No open positions / orders."]
             else:
+                stripes = [40 * "-"]
                 open_positions_and_orders = (
-                    ["Position(s):"]
+                    stripes
+                    + ["Position(s):"]
                     + (
                         [get_discord_table(position) for position in self.positions]
                         if self.positions
@@ -247,6 +249,7 @@ class Exchange:
                         if self.limit_orders
                         else ["```-```"]
                     )
+                    + stripes
                 )
 
             logger.info(f"{open_positions_and_orders=}")
