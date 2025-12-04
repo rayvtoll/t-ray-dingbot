@@ -44,6 +44,9 @@ def get_formatted_unordered_list(obj: dict, nested: bool = False) -> str:
 def post_to_discord(message_queue: List[DiscordMessage]) -> None:
     """Post messages to discord and empty the message queue"""
 
+    if not USE_DISCORD:
+        return
+
     intents = discord.Intents.default()
     intents.messages = True
     client = discord.Client(intents=intents)

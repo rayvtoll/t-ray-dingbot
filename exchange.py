@@ -14,7 +14,7 @@ from misc import (
 import requests
 from typing import List, Tuple
 
-from discord_client import USE_DISCORD
+from discord_client import USE_DISCORD, get_discord_table
 
 
 TICKER: str = "BTC/USDT:USDT"
@@ -33,7 +33,6 @@ SHORT = "short"
 
 if USE_DISCORD:
     from discord_client import (
-        get_discord_table,
         USE_AT_EVERYONE,
         DISCORD_CHANNEL_TRADES_ID,
         DISCORD_CHANNEL_POSITIONS_ID,
@@ -435,12 +434,13 @@ class Exchange:
                         "long" if price > position_to_open.long_above else "short"
                     ),
                 }
-                self.discord_message_queue.append(
-                    DiscordMessage(
-                        channel_id=DISCORD_CHANNEL_WAITING_ID,
-                        messages=[get_discord_table(entering_position_log_info)],
+                if USE_DISCORD:
+                    self.discord_message_queue.append(
+                        DiscordMessage(
+                            channel_id=DISCORD_CHANNEL_WAITING_ID,
+                            messages=[get_discord_table(entering_position_log_info)],
+                        )
                     )
-                )
 
             await self.apply_strategy(
                 strategy_type=position_to_open.strategy_type,
@@ -758,15 +758,16 @@ class Exchange:
                 take_profit=f"$ {round(takeprofit_price, EXCHANGE_PRICE_PRECISION):,}",
             )
             logger.info(f"{order_log_info=}")
-            self.discord_message_queue.append(
-                DiscordMessage(
-                    channel_id=DISCORD_CHANNEL_TRADES_ID,
-                    messages=[
-                        f"{get_discord_table(order_log_info)}",
-                    ],
-                    at_everyone=USE_AT_EVERYONE,
+            if USE_DISCORD:
+                self.discord_message_queue.append(
+                    DiscordMessage(
+                        channel_id=DISCORD_CHANNEL_TRADES_ID,
+                        messages=[
+                            f"{get_discord_table(order_log_info)}",
+                        ],
+                        at_everyone=USE_AT_EVERYONE,
+                    )
                 )
-            )
         except Exception as e:
             logger.error(f"Error posting order to discord: {e}")
             if USE_DISCORD:
