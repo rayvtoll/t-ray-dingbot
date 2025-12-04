@@ -425,6 +425,7 @@ class Exchange:
                     else position_to_open.short_below
                 )
                 entering_position_log_info = {
+                    "_id": position_to_open._id,
                     "price": (
                         f"$ {round(price, EXCHANGE_PRICE_PRECISION):,} is "
                         + ("above" if price > position_to_open.long_above else "below")
@@ -524,7 +525,7 @@ class Exchange:
             if await self.reaction_to_liquidation_is_strong(liquidation, price):
                 liquidation_datetime = self.scanner.now.replace(
                     second=0, microsecond=0
-                ) - timedelta(minutes=5)
+                ) - timedelta(minutes=10)
                 if USE_LIVE_STRATEGY and (
                     liquidation_datetime.weekday() in LIVE_TRADING_DAYS
                     and liquidation_datetime.hour in LIVE_TRADING_HOURS
@@ -544,6 +545,7 @@ class Exchange:
                 short_below = round(price * 0.995, EXCHANGE_PRICE_PRECISION)
                 self.positions_to_open.append(
                     PositionToOpen(
+                        _id=liquidation._id,
                         strategy_type=strategy_type,
                         liquidation=liquidation,
                         long_above=long_above,
@@ -552,6 +554,7 @@ class Exchange:
                 )
                 if USE_DISCORD and strategy_type != JOURNALING:
                     position_to_enter_log_info = {
+                        "_id": liquidation._id,
                         "long above": f"$ {long_above:,}",
                         "short below": f"$ {short_below:,}",
                     }
@@ -623,6 +626,7 @@ class Exchange:
 
         if USE_DISCORD and post_to_discord:
             await self.post_trade_to_discord(
+                _id=liquidation._id,
                 direction=direction,
                 price=price,
                 stoploss_price=stoploss_price,
@@ -742,6 +746,7 @@ class Exchange:
 
     async def post_trade_to_discord(
         self,
+        _id: str,
         direction: str,
         price: float,
         stoploss_price: float,
@@ -751,6 +756,7 @@ class Exchange:
         """Post the order details to discord"""
         try:
             order_log_info = dict(
+                _id=_id,
                 amount=f"{amount} contract(s)",
                 direction=direction,
                 price=f"$ {round(price, EXCHANGE_PRICE_PRECISION):,}",

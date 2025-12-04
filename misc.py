@@ -22,6 +22,7 @@ class Candle:
 class Liquidation:
     """Liquidation class to hold the liquidation data"""
 
+    _id: str
     amount: int
     direction: str
     time: int
@@ -89,6 +90,7 @@ class LiquidationSet:
 class PositionToOpen:
     """PositionToOpen class to hold the position to open data"""
 
+    _id: str
     strategy_type: str
     liquidation: Liquidation
     long_above: float
@@ -99,7 +101,7 @@ class PositionToOpen:
 class DiscordMessage:
     """DiscordMessage class to hold the discord message data"""
 
-    channel_id: int
+    channel_id: str
     messages: List[str]
     at_everyone: bool = False
 
@@ -108,7 +110,6 @@ class DiscordMessage:
 class TPLimitOrderToPlace:
     """TPLimitOrderToPlace class to hold the take profit limit order data"""
 
-    order_id: str
     direction: str
     amount: float
     takeprofit_price: float

@@ -94,6 +94,10 @@ class CoinalyzeScanner:
             and nr_of_liquidations >= MINIMAL_NR_OF_LIQUIDATIONS
         ):
             long_liquidation = Liquidation(
+                _id=str(
+                    "l-"
+                    + datetime.fromtimestamp(candle.timestamp / 1000).strftime("%H%M")
+                ),
                 amount=total_long,
                 direction="long",
                 time=l_time,
@@ -107,6 +111,10 @@ class CoinalyzeScanner:
             and nr_of_liquidations >= MINIMAL_NR_OF_LIQUIDATIONS
         ):
             short_liquidation = Liquidation(
+                _id=str(
+                    "s-"
+                    + datetime.fromtimestamp(candle.timestamp / 1000).strftime("%H%M")
+                ),
                 amount=total_short,
                 direction="short",
                 time=l_time,
