@@ -110,6 +110,7 @@ class DiscordMessage:
 class TPLimitOrderToPlace:
     """TPLimitOrderToPlace class to hold the take profit limit order data"""
 
+    order_id: str
     direction: str
     amount: float
     takeprofit_price: float
