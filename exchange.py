@@ -86,7 +86,7 @@ if USE_LIVE_STRATEGY:
     LIVE_TRADING_HOURS = config(
         "LIVE_TRADING_HOURS",
         cast=Csv(int),
-        default="3,4,10,11,13,14,15,16,17,18",
+        default="2,3,4,10,11,13,14,15,16,17,18,19",
     )
     logger.info(f"{LIVE_TRADING_HOURS=}")
 
