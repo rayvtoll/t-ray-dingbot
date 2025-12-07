@@ -1,8 +1,10 @@
 from asyncio import run, sleep
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timedelta
+
+import ccxt
 from logger import logger
-from misc import DiscordMessage, Liquidation, LiquidationSet
+from misc import Candle, DiscordMessage, Liquidation, LiquidationSet
 import threading
 from typing import List
 
@@ -120,19 +122,21 @@ async def main() -> None:
 
             # update scanner time
             scanner.now = now
+            last_candle: Candle | None = await exchange.get_last_candle(now)
+            if last_candle:
 
-            # run strategy for the exchange on LIQUIDATIONS list
-            await exchange.run_loop()
+                # run strategy for the exchange on LIQUIDATIONS list
+                await exchange.run_loop(last_candle)
 
-            # check for fresh liquidations and add to LIQUIDATIONS list
-            await scanner.handle_liquidation_set(
-                await exchange.get_last_candle(),
-                await scanner.handle_coinalyze_url(COINALYZE_LIQUIDATION_URL),
-            )
+                # check for fresh liquidations and add to LIQUIDATIONS list
+                await scanner.handle_liquidation_set(
+                    last_candle,
+                    await scanner.handle_coinalyze_url(COINALYZE_LIQUIDATION_URL),
+                )
 
-            # log liquidations if any
-            if LIQUIDATIONS:
-                logger.info(f"{LIQUIDATIONS=}")
+                # log liquidations if any
+                if LIQUIDATIONS:
+                    logger.info(f"{LIQUIDATIONS=}")
 
             await sleep(0.99)
 
@@ -156,6 +160,9 @@ async def main() -> None:
             exchange.discord_message_queue.append(
                 DiscordMessage(channel_id=DISCORD_CHANNEL_HEARTBEAT_ID, messages=["."])
             )
+
+            # update symbols in scanner
+            await scanner.set_symbols()
 
             await sleep(0.99)
 

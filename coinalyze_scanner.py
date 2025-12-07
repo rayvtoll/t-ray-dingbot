@@ -61,12 +61,14 @@ class CoinalyzeScanner:
     async def set_symbols(self) -> None:
         """Returns the symbols for the request to the API"""
         symbols = []
+        if hasattr(self, "_symbols"):
+            symbols = self._symbols.split(",")
         for market in await self.handle_coinalyze_url(
             url=FUTURE_MARKETS_URL, include_params=False, symbols=True
         ):
             if (symbol := market.get("symbol", "").upper()).startswith("BTCUSD"):
                 symbols.append(symbol)
-        self._symbols = ",".join(symbols)
+        self._symbols = ",".join(list(set(symbols)))
 
     async def handle_liquidation_set(self, candle: Candle, symbols: list) -> None:
         """Handle the liquidation set and check for liquidations
