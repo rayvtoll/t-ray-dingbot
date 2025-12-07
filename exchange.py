@@ -279,7 +279,7 @@ class Exchange:
         """Get the last candle from Binance exchange"""
 
         try:
-            last_candles = BINANCE_EXCHANGE.fetch_ohlcv(
+            last_candles = await BINANCE_EXCHANGE.fetch_ohlcv(
                 symbol=TICKER,
                 timeframe="5m",
                 since=None,
