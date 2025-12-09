@@ -69,7 +69,7 @@ if USE_FIXED_RISK:
     FIXED_RISK_EX_FEES = config("FIXED_RISK_EX_FEES", cast=float, default="50.0")
     logger.info(f"{FIXED_RISK_EX_FEES=}")
 else:
-    POSITION_PERCENTAGE = config("POSITION_PERCENTAGE", cast=float, default="0.5")
+    POSITION_PERCENTAGE = config("POSITION_PERCENTAGE", cast=float, default="1.0")
     logger.info(f"{POSITION_PERCENTAGE=}")
 
 # live strategy
