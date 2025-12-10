@@ -1,3 +1,4 @@
+from copy import deepcopy
 import ccxt.pro as ccxt
 from coinalyze_scanner import CoinalyzeScanner
 from datetime import datetime, timedelta
@@ -87,7 +88,7 @@ if USE_LIVE_STRATEGY:
     LIVE_TRADING_HOURS = config(
         "LIVE_TRADING_HOURS",
         cast=Csv(int),
-        default="2,3,4,10,11,13,14,15,16,17,18,19",
+        default="2,3,4,10,11,12,13,14,15,16,17,18,19",
     )
     logger.info(f"{LIVE_TRADING_HOURS=}")
 
@@ -279,20 +280,16 @@ class Exchange:
         """Get the last candle from Binance exchange"""
 
         try:
+            now_minus_5m = now.replace(
+                minute=now.minute - now.minute % 5, second=0, microsecond=0
+            ) - timedelta(minutes=5)
             last_candles = await BINANCE_EXCHANGE.fetch_ohlcv(
                 symbol=TICKER,
                 timeframe="5m",
-                since=None,
+                since=now_minus_5m.timestamp() * 1000,
                 limit=2,
             )
-            # get the candle of 5 minutes ago
-            if datetime.fromtimestamp(last_candles[-1][0] / 1000) > now.replace(
-                minute=now.minute - now.minute % 5, second=0, microsecond=0
-            ) - timedelta(minutes=5):
-                last_candles = last_candles[:-1]
-            last_candle: Candle = Candle(*last_candles[-1])
-            logger.info(f"{last_candle=}")
-            return last_candle
+            return Candle(*last_candles[0])
         except Exception as e:
             logger.error(f"Error fetching ohlcv: {e}")
             if USE_DISCORD:
@@ -399,27 +396,63 @@ class Exchange:
     async def run_loop(self, last_candle: Candle) -> None:
         """Run the loop for the exchange"""
 
-        for position_to_open in self.positions_to_open:
+        for position_to_open in deepcopy(self.positions_to_open):
+            long_above: bool = (
+                position_to_open.long_above
+                and last_candle.close > position_to_open.long_above
+            )
+            short_below: bool = (
+                position_to_open.short_below
+                and last_candle.close < position_to_open.short_below
+            )
+            cancel_above: bool = (
+                position_to_open.cancel_above
+                and last_candle.close > position_to_open.cancel_above
+            )
+            cancel_below: bool = (
+                position_to_open.cancel_below
+                and last_candle.close < position_to_open.cancel_below
+            )
+
+            # should the trade be canceled due to price moving above cancel_above?
+            if cancel_above or cancel_below:
+                canceling_position_log_info = {
+                    "_id": position_to_open._id,
+                    "price": (
+                        f"$ {round(last_candle.close, EXCHANGE_PRICE_PRECISION):,} is "
+                        + (f"above" if cancel_above else "below")
+                        + f" $ {round((position_to_open.cancel_above if cancel_above else position_to_open.cancel_below), EXCHANGE_PRICE_PRECISION):,}"
+                    ),
+                    "status": "canceled",
+                }
+                logger.info(f"{canceling_position_log_info=}")
+                if USE_DISCORD:
+                    self.discord_message_queue.append(
+                        DiscordMessage(
+                            channel_id=DISCORD_CHANNEL_WAITING_ID,
+                            messages=[get_discord_table(canceling_position_log_info)],
+                        )
+                    )
+                self.positions_to_open.remove(position_to_open)
+                continue
 
             # are conditions not met to open a position?
-            if not (last_candle.close > position_to_open.long_above) and not (
-                last_candle.close < position_to_open.short_below
-            ):
+            if not long_above and not short_below:
                 logger.info(
-                    "Conditions not met to open position: "
-                    + f"{last_candle.close=}, {position_to_open.long_above=}, {position_to_open.short_below=}"
+                    f"Conditions for {position_to_open._id} not met to open position around {last_candle.close=}"
                 )
                 continue
 
+            # long_above or short_below conditions met, open position
             self.positions_to_open.remove(position_to_open)
             logger.info(
-                f"Conditions met to open {'LONG' if last_candle.close > position_to_open.long_above else 'SHORT'} "
+                f"Conditions met to open {'LONG' if long_above else 'SHORT'} "
                 + f"position around {last_candle.close=}"
             )
             if USE_DISCORD and position_to_open.strategy_type != JOURNALING:
                 prive_above_or_below = (
                     position_to_open.long_above
-                    if last_candle.close > position_to_open.long_above
+                    if long_above
                     else position_to_open.short_below
                 )
                 entering_position_log_info = {
@@ -428,15 +461,22 @@ class Exchange:
                         f"$ {round(last_candle.close, EXCHANGE_PRICE_PRECISION):,} is "
                         + (
                             "above"
-                            if last_candle.close > position_to_open.long_above
+                            if (
+                                long_above
+                                and last_candle.close > position_to_open.long_above
+                            )
                             else "below"
                         )
                         + f" $ {round(prive_above_or_below, EXCHANGE_PRICE_PRECISION):,}"
                     ),
-                    "entering": (
-                        "long"
-                        if last_candle.close > position_to_open.long_above
-                        else "short"
+                    "status": (
+                        "entering "
+                        + (
+                            "long"
+                            if long_above
+                            and last_candle.close > position_to_open.long_above
+                            else "short"
+                        )
                     ),
                 }
                 if USE_DISCORD:
@@ -481,7 +521,7 @@ class Exchange:
                         )
                     )
 
-            for tp_limit_order_to_place in self.tp_limit_orders_to_place:
+            for tp_limit_order_to_place in deepcopy(self.tp_limit_orders_to_place):
 
                 # loop over closed orders to find the one matching our limit order
                 for order_info in orders_info:
@@ -525,15 +565,29 @@ class Exchange:
                                 )
 
         # loop over detected liquidations
-        for liquidation in self.liquidation_set.liquidations:
+        for liquidation in deepcopy(self.liquidation_set.liquidations):
+
+            liquidation_datetime: datetime = datetime.fromtimestamp(
+                liquidation.candle.timestamp / 1000
+            )
+            # check if confirmation is within 2 candles after liquidation candle
+            if liquidation_datetime < (
+                self.scanner.now.replace(second=0, microsecond=0)
+                - timedelta(minutes=15)
+            ):
+                logger.info(f"Removing old liquidation: {liquidation._id}")
+                self.liquidation_set.liquidations.remove(liquidation)
+                continue
 
             # if reaction to liquidation is strong, add it to positions to open
             if await self.reaction_to_liquidation_is_strong(
                 liquidation, last_candle.close
             ):
-                liquidation_datetime = self.scanner.now.replace(
-                    second=0, microsecond=0
-                ) - timedelta(minutes=10)
+                now = self.scanner.now.replace(second=0, microsecond=0)
+                candles_before_entry = (
+                    int(round((now - liquidation_datetime).total_seconds() / 300, 0))
+                    - 1
+                )
                 if USE_LIVE_STRATEGY and (
                     liquidation_datetime.weekday() in LIVE_TRADING_DAYS
                     and liquidation_datetime.hour in LIVE_TRADING_HOURS
@@ -549,23 +603,47 @@ class Exchange:
                         "Outside trading hours/days, not adding position to open."
                     )
                     continue
-                long_above = round(last_candle.close * 1.005, EXCHANGE_PRICE_PRECISION)
-                short_below = round(last_candle.close * 0.995, EXCHANGE_PRICE_PRECISION)
-                self.positions_to_open.append(
-                    PositionToOpen(
-                        _id=liquidation._id,
-                        strategy_type=strategy_type,
-                        liquidation=liquidation,
-                        long_above=long_above,
-                        short_below=short_below,
+
+                long_above = short_below = cancel_above = cancel_below = None
+                if liquidation.direction == LONG:
+                    short_below = round(
+                        last_candle.close * 0.995, EXCHANGE_PRICE_PRECISION
                     )
+                    if candles_before_entry > 1:
+                        cancel_above = round(
+                            last_candle.close * 1.005, EXCHANGE_PRICE_PRECISION
+                        )
+                    else:
+                        long_above = round(
+                            last_candle.close * 1.005, EXCHANGE_PRICE_PRECISION
+                        )
+                elif liquidation.direction == SHORT:
+                    long_above = round(
+                        last_candle.close * 1.005, EXCHANGE_PRICE_PRECISION
+                    )
+                    if candles_before_entry > 1:
+                        cancel_below = round(
+                            last_candle.close * 0.995, EXCHANGE_PRICE_PRECISION
+                        )
+                    else:
+                        short_below = round(
+                            last_candle.close * 0.995, EXCHANGE_PRICE_PRECISION
+                        )
+
+                position_to_open = PositionToOpen(
+                    _id=liquidation._id,
+                    strategy_type=strategy_type,
+                    liquidation=liquidation,
+                    candles_before_entry=candles_before_entry,
+                    long_above=long_above,
+                    short_below=short_below,
+                    cancel_above=cancel_above,
+                    cancel_below=cancel_below,
                 )
+                self.positions_to_open.append(position_to_open)
+                self.liquidation_set.liquidations.remove(liquidation)
                 if USE_DISCORD and strategy_type != JOURNALING:
-                    position_to_enter_log_info = {
-                        "_id": liquidation._id,
-                        "long above": f"$ {long_above:,}",
-                        "short below": f"$ {short_below:,}",
-                    }
+                    position_to_enter_log_info = position_to_open.init_message_dict()
                     logger.info(f"{position_to_enter_log_info=}")
                     self.discord_message_queue.append(
                         DiscordMessage(
@@ -576,7 +654,6 @@ class Exchange:
                             at_everyone=USE_AT_EVERYONE,
                         )
                     )
-        self.liquidation_set.liquidations.clear()
 
     async def reaction_to_liquidation_is_strong(
         self, liquidation: Liquidation, price: float
@@ -595,7 +672,7 @@ class Exchange:
         strategy_type: str,
         liquidation: Liquidation,
         direction: str,
-    ) -> bool:
+    ) -> None:
         """Apply the strategy during trading hours and days"""
 
         if USE_LIVE_STRATEGY and strategy_type == LIVE:
@@ -612,7 +689,7 @@ class Exchange:
             post_to_discord = False
         else:
             logger.info("Outside trading hours/days, not applying strategy.")
-            return False
+            return
 
         price, stoploss_price, takeprofit_price = await self.limit_order_placement(
             direction=direction,
@@ -641,8 +718,6 @@ class Exchange:
                 takeprofit_price=takeprofit_price,
                 amount=amount,
             )
-
-        return True
 
     async def get_sl_and_tp_price(
         self,

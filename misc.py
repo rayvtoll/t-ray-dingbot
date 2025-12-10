@@ -93,8 +93,27 @@ class PositionToOpen:
     _id: str
     strategy_type: str
     liquidation: Liquidation
-    long_above: float
-    short_below: float
+    candles_before_entry: int
+    long_above: float | None
+    cancel_above: float | None
+    short_below: float | None
+    cancel_below: float | None
+
+    def init_message_dict(self) -> dict:
+        """Initialize the message dictionary for the position to open."""
+
+        message_dict = dict(_id=self._id)
+        message_dict["candles before confirmation"] = self.candles_before_entry
+        if self.long_above:
+            message_dict["long above"] = f"$ {self.long_above:,}"
+        if self.cancel_above:
+            message_dict["cut above"] = f"$ {self.cancel_above:,}"
+        if self.short_below:
+            message_dict["short below"] = f"$ {self.short_below:,}"
+        if self.cancel_below:
+            message_dict["cut below"] = f"$ {self.cancel_below:,}"
+
+        return message_dict
 
 
 @dataclass
