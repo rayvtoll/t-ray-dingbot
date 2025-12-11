@@ -286,7 +286,7 @@ class Exchange:
             last_candles = await BINANCE_EXCHANGE.fetch_ohlcv(
                 symbol=TICKER,
                 timeframe="5m",
-                since=now_minus_5m.timestamp() * 1000,
+                since=int(now_minus_5m.timestamp() * 1000),
                 limit=2,
             )
             return Candle(*last_candles[0])
