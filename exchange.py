@@ -289,7 +289,9 @@ class Exchange:
                 since=int(now_minus_5m.timestamp() * 1000),
                 limit=2,
             )
-            return Candle(*last_candles[0])
+            candle: Candle = Candle(*last_candles[0])
+            logger.info(f"{candle=}")
+            return candle
         except Exception as e:
             logger.error(f"Error fetching ohlcv: {e}")
             if USE_DISCORD:
