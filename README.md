@@ -1,6 +1,7 @@
 # t-Ray-dingbot
 
 Fully automatic trading bot for (BloFin) Futures using liquidations from Coinalyze to counter trade as a strategy. The bot currently uses 2 strategies: live and journaling. The position sizes for these strategies are full for live, but minimal size for journaling.
+For BloFin discount you can use my referral link if you like: TdkPZp
 
 ## To get started
 
