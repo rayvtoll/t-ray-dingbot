@@ -474,10 +474,10 @@ class Exchange:
                     "status": (
                         "entering "
                         + (
-                            "long"
+                            LONG
                             if long_above
                             and last_candle.close > position_to_open.long_above
-                            else "short"
+                            else SHORT
                         )
                     ),
                 }
@@ -493,7 +493,9 @@ class Exchange:
                 strategy_type=position_to_open.strategy_type,
                 liquidation=position_to_open.liquidation,
                 direction=(
-                    LONG if last_candle.close > position_to_open.long_above else SHORT
+                    LONG
+                    if long_above and last_candle.close > position_to_open.long_above
+                    else SHORT
                 ),
             )
 
