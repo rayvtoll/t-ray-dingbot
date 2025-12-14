@@ -461,25 +461,10 @@ class Exchange:
                     "_id": position_to_open._id,
                     "price": (
                         f"$ {round(last_candle.close, EXCHANGE_PRICE_PRECISION):,} is "
-                        + (
-                            "above"
-                            if (
-                                long_above
-                                and last_candle.close > position_to_open.long_above
-                            )
-                            else "below"
-                        )
+                        + ("above" if long_above else "below")
                         + f" $ {round(prive_above_or_below, EXCHANGE_PRICE_PRECISION):,}"
                     ),
-                    "status": (
-                        "entering "
-                        + (
-                            LONG
-                            if long_above
-                            and last_candle.close > position_to_open.long_above
-                            else SHORT
-                        )
-                    ),
+                    "status": "entering " + (LONG if long_above else SHORT),
                 }
                 if USE_DISCORD:
                     self.discord_message_queue.append(
