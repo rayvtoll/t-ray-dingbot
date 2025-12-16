@@ -107,12 +107,11 @@ class PositionToOpen:
         if self.long_above:
             message_dict["long above"] = f"$ {self.long_above:,}"
         if self.cancel_above:
-            message_dict["cut above"] = f"$ {self.cancel_above:,}"
+            message_dict["no order above"] = f"$ {self.cancel_above:,}"
         if self.short_below:
             message_dict["short below"] = f"$ {self.short_below:,}"
         if self.cancel_below:
-            message_dict["cut below"] = f"$ {self.cancel_below:,}"
-
+            message_dict["no order below"] = f"$ {self.cancel_below:,}"
         return message_dict
 
 
