@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from decouple import config
+from decouple import config, Csv
 from functools import cached_property
 
 from discord_client import USE_DISCORD
@@ -24,12 +24,18 @@ MINIMAL_NR_OF_LIQUIDATIONS = config("MINIMAL_NR_OF_LIQUIDATIONS", default="1", c
 logger.info(f"{MINIMAL_NR_OF_LIQUIDATIONS=}")
 MINIMAL_LIQUIDATION = config("MINIMAL_LIQUIDATION", default="2000", cast=int)
 logger.info(f"{MINIMAL_LIQUIDATION=}")
-
 N_MINUTES_TIMEDELTA = config("N_MINUTES_TIMEDELTA", default="5", cast=int)
 logger.info(f"{N_MINUTES_TIMEDELTA=}")
-
 INTERVAL = config("INTERVAL", default="5min")
 logger.info(f"{INTERVAL=}")
+LIQUIDATION_DAYS = config("LIQUIDATION_DAYS", cast=Csv(int), default="0,1,2,3,4,5,6")
+logger.info(f"{LIQUIDATION_DAYS=}")
+LIQUIDATION_HOURS = config(
+    "LIQUIDATION_HOURS",
+    cast=Csv(int),
+    default="2,4,10,11,12,14,15,16,17,18,19,22",
+)
+logger.info(f"{LIQUIDATION_HOURS=}")
 
 
 class CoinalyzeScanner:
@@ -44,12 +50,13 @@ class CoinalyzeScanner:
     @property
     def params(self) -> dict:
         """Returns the parameters for the request to the API"""
+        rounded_now: datetime = self.now.replace(second=0, microsecond=0)
         return {
             "symbols": self.symbols,
             "from": int(
-                datetime.timestamp(self.now - timedelta(minutes=N_MINUTES_TIMEDELTA))
+                datetime.timestamp(rounded_now - timedelta(minutes=N_MINUTES_TIMEDELTA))
             ),
-            "to": int(datetime.timestamp(self.now)),
+            "to": int(datetime.timestamp(rounded_now)),
             "interval": INTERVAL,
         }
 
@@ -105,8 +112,20 @@ class CoinalyzeScanner:
                 time=l_time,
                 nr_of_liquidations=nr_of_liquidations,
                 candle=candle,
+                on_liquidation_days=(
+                    datetime.fromtimestamp(candle.timestamp / 1000).weekday()
+                    in LIQUIDATION_DAYS
+                ),
+                during_liquidation_hours=(
+                    datetime.fromtimestamp(candle.timestamp / 1000).hour
+                    in LIQUIDATION_HOURS
+                ),
             )
-            self.liquidation_set.liquidations.insert(0, long_liquidation)
+            if (
+                long_liquidation.on_liquidation_days
+                and long_liquidation.during_liquidation_hours
+            ):
+                self.liquidation_set.liquidations.insert(0, long_liquidation)
             discord_liquidations.append(long_liquidation)
         if (
             total_short > MINIMAL_LIQUIDATION
@@ -122,8 +141,20 @@ class CoinalyzeScanner:
                 time=l_time,
                 nr_of_liquidations=nr_of_liquidations,
                 candle=candle,
+                on_liquidation_days=(
+                    datetime.fromtimestamp(candle.timestamp / 1000).weekday()
+                    in LIQUIDATION_DAYS
+                ),
+                during_liquidation_hours=(
+                    datetime.fromtimestamp(candle.timestamp / 1000).hour
+                    in LIQUIDATION_HOURS
+                ),
             )
-            self.liquidation_set.liquidations.insert(0, short_liquidation)
+            if (
+                short_liquidation.on_liquidation_days
+                and short_liquidation.during_liquidation_hours
+            ):
+                self.liquidation_set.liquidations.insert(0, short_liquidation)
             discord_liquidations.append(short_liquidation)
         if USE_DISCORD and discord_liquidations:
             self.exchange.discord_message_queue.append(

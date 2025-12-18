@@ -28,6 +28,8 @@ class Liquidation:
     time: int
     nr_of_liquidations: int
     candle: Candle
+    on_liquidation_days: bool
+    during_liquidation_hours: bool
     time_frame: str = "5m"  # Default time frame
 
     def to_dict(self) -> dict:
@@ -35,10 +37,10 @@ class Liquidation:
 
         liquidation_dict = deepcopy(self.__dict__)
         liquidation_dict["amount"] = f"$ {round(self.amount, 2):,}"
-        liquidation_dict["volume"] = self.candle.volume
         del liquidation_dict["time"]
         del liquidation_dict["candle"]
         del liquidation_dict["time_frame"]
+        del liquidation_dict["nr_of_liquidations"]
         return liquidation_dict
 
 
@@ -91,19 +93,19 @@ class PositionToOpen:
     """PositionToOpen class to hold the position to open data"""
 
     _id: str
-    strategy_type: str
     liquidation: Liquidation
-    candles_before_entry: int
+    candles_before_confirmation: int
     long_above: float | None
     cancel_above: float | None
     short_below: float | None
     cancel_below: float | None
+    past_first_candle: bool = False
 
     def init_message_dict(self) -> dict:
         """Initialize the message dictionary for the position to open."""
 
         message_dict = dict(_id=self._id)
-        message_dict["candles before confirmation"] = self.candles_before_entry
+        message_dict["candles before confirmation"] = self.candles_before_confirmation
         if self.long_above:
             message_dict["long above"] = f"$ {self.long_above:,}"
         if self.cancel_above:

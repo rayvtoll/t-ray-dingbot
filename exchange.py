@@ -12,7 +12,6 @@ from misc import (
     PositionToOpen,
     TPLimitOrderToPlace,
 )
-import requests
 from typing import List, Tuple
 
 from discord_client import USE_DISCORD, get_discord_table
@@ -24,9 +23,6 @@ EXCHANGE_PRICE_PRECISION: int = config(
 )
 BINANCE_EXCHANGE = ccxt.binance()
 
-# Strategy types
-LIVE = "live"
-JOURNALING = "journaling"
 
 # Order Directions
 LONG = "long"
@@ -41,14 +37,6 @@ if USE_DISCORD:
         DISCORD_CHANNEL_HEARTBEAT_ID,
         DISCORD_CHANNEL_WAITING_ID,
     )
-
-USE_AUTO_JOURNALING = config("USE_AUTO_JOURNALING", cast=bool, default="false")
-logger.info(f"{USE_AUTO_JOURNALING=}")
-if USE_AUTO_JOURNALING:
-    JOURNAL_HOST_AND_PORT = config(
-        "JOURNAL_HOST_AND_PORT", default="http://127.0.0.1:8000"
-    )
-    JOURNALING_API_KEY = config("JOURNALING_API_KEY")
 
 # exchange settings
 EXCHANGE_NAME = config("EXCHANGE_NAME", default="blofin")
@@ -73,47 +61,19 @@ else:
     POSITION_PERCENTAGE = config("POSITION_PERCENTAGE", cast=float, default="1.0")
     logger.info(f"{POSITION_PERCENTAGE=}")
 
-# live strategy
-USE_LIVE_STRATEGY = config("USE_LIVE_STRATEGY", cast=bool, default="true")
-logger.info(f"{USE_LIVE_STRATEGY=}")
-if USE_LIVE_STRATEGY:
-    LIVE_SL_PERCENTAGE = config("LIVE_SL_PERCENTAGE", cast=float, default="1")
-    logger.info(f"{LIVE_SL_PERCENTAGE=}")
-    LIVE_TP_PERCENTAGE = config("LIVE_TP_PERCENTAGE", cast=float, default="4")
-    logger.info(f"{LIVE_TP_PERCENTAGE=}")
-    LIVE_TRADING_DAYS = config(
-        "LIVE_TRADING_DAYS", cast=Csv(int), default="0,1,2,3,4,5,6"
-    )
-    logger.info(f"{LIVE_TRADING_DAYS=}")
-    LIVE_TRADING_HOURS = config(
-        "LIVE_TRADING_HOURS",
-        cast=Csv(int),
-        default="2,3,4,10,11,12,13,14,15,16,17,18,19",
-    )
-    logger.info(f"{LIVE_TRADING_HOURS=}")
-
-# journaling strategy
-USE_JOURNALING_STRATEGY = config("USE_JOURNALING_STRATEGY", cast=bool, default="true")
-logger.info(f"{USE_JOURNALING_STRATEGY=}")
-if USE_JOURNALING_STRATEGY:
-    JOURNALING_SL_PERCENTAGE = config(
-        "JOURNALING_SL_PERCENTAGE", cast=float, default="0.25"
-    )
-    logger.info(f"{JOURNALING_SL_PERCENTAGE=}")
-    JOURNALING_TP_PERCENTAGE = config(
-        "JOURNALING_TP_PERCENTAGE", cast=float, default="0.5"
-    )
-    logger.info(f"{JOURNALING_TP_PERCENTAGE=}")
-    JOURNALING_TRADING_DAYS = config(
-        "JOURNALING_TRADING_DAYS", cast=Csv(int), default="0,1,2,3,4,5,6"
-    )
-    logger.info(f"{JOURNALING_TRADING_DAYS=}")
-    JOURNALING_TRADING_HOURS = config(
-        "JOURNALING_TRADING_HOURS",
-        cast=Csv(int),
-        default="0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23",
-    )
-    logger.info(f"{JOURNALING_TRADING_HOURS=}")
+# strategy
+SL_PERCENTAGE = config("SL_PERCENTAGE", cast=float, default="1")
+logger.info(f"{SL_PERCENTAGE=}")
+TP_PERCENTAGE = config("TP_PERCENTAGE", cast=float, default="4")
+logger.info(f"{TP_PERCENTAGE=}")
+ENTRY_DAYS = config("ENTRY_DAYS", cast=Csv(int), default="0,1,2,3,4,5,6")
+logger.info(f"{ENTRY_DAYS=}")
+ENTRY_HOURS = config(
+    "ENTRY_HOURS",
+    cast=Csv(int),
+    default="2,5,9,10,11,12,13,15,16,17,19,21,23",
+)
+logger.info(f"{ENTRY_HOURS=}")
 
 
 class Exchange:
@@ -315,28 +275,17 @@ class Exchange:
             total_balance: float = balance.get("USDT", {}).get("total", 1)
             price = await self.get_price()
 
-            # calculate live position size
-            if USE_LIVE_STRATEGY:
-                if USE_FIXED_RISK:
-                    live_usdt_size: float = (
-                        FIXED_RISK_EX_FEES * LIVE_SL_PERCENTAGE * LEVERAGE
-                    )
-                else:
-                    live_usdt_size: float = (
-                        total_balance / (LIVE_SL_PERCENTAGE * LEVERAGE)
-                    ) * POSITION_PERCENTAGE
-                live_position_size: float = round(
-                    live_usdt_size / price * LEVERAGE * 1000, 1
-                )
-
-            # journaling position size is a fixed small size for now
-            journaling_position_size: float = 0.1
+            # calculate position size
+            if USE_FIXED_RISK:
+                usdt_size: float = FIXED_RISK_EX_FEES * SL_PERCENTAGE * LEVERAGE
+            else:
+                usdt_size: float = (
+                    total_balance / (SL_PERCENTAGE * LEVERAGE)
+                ) * POSITION_PERCENTAGE
+            position_size: float = round(usdt_size / price * LEVERAGE * 1000, 1)
 
         except Exception as e:
-            if USE_LIVE_STRATEGY:
-                live_position_size = 0.1
-            if USE_JOURNALING_STRATEGY:
-                journaling_position_size = 0.1
+            position_size = 0.1
             logger.error(f"Error setting position size: {e}")
             if USE_DISCORD:
                 self.discord_message_queue.append(
@@ -350,299 +299,329 @@ class Exchange:
                 )
 
         # set the position sizes if they are not set yet
-        if (USE_LIVE_STRATEGY and not hasattr(self, "_live_position_size")) or (
-            USE_JOURNALING_STRATEGY and not hasattr(self, "_journaling_position_size")
-        ):
-            if USE_LIVE_STRATEGY:
-                self._live_position_size = live_position_size
-            if USE_JOURNALING_STRATEGY:
-                self._journaling_position_size = journaling_position_size
-            logger.info(
-                f"Initial "
-                + (f"{self._live_position_size=} - " if USE_LIVE_STRATEGY else "")
-                + (
-                    f"{self._journaling_position_size=}"
-                    if USE_JOURNALING_STRATEGY
-                    else ""
-                )
-            )
+        if not hasattr(self, "_position_size"):
+            self._position_size = position_size
+            logger.info(f"Initial {self._position_size=}")
             return
 
         # set the position sizes if they have changed
-        if (USE_LIVE_STRATEGY and (live_position_size != self._live_position_size)) or (
-            USE_JOURNALING_STRATEGY
-            and (journaling_position_size != self._journaling_position_size)
-        ):
+        if position_size != self._position_size:
+            logger.info(f"{position_size=}")
+            self._position_size = position_size
+
+    @property
+    def position_size(self) -> int:
+        """Get the position size for the exchange"""
+
+        return self._position_size
+
+    async def handle_position_to_open(
+        self, position_to_open: PositionToOpen, last_candle: Candle
+    ) -> None:
+        """Handle 1 position inside self.positions_to_open"""
+
+        long_above: bool = (
+            position_to_open.long_above
+            and last_candle.close > position_to_open.long_above
+        )
+        short_below: bool = (
+            position_to_open.short_below
+            and last_candle.close < position_to_open.short_below
+        )
+        cancel_above: bool = (
+            position_to_open.cancel_above
+            and last_candle.close > position_to_open.cancel_above
+        )
+        cancel_below: bool = (
+            position_to_open.cancel_below
+            and last_candle.close < position_to_open.cancel_below
+        )
+
+        # should the trade be canceled due to price moving above cancel_above?
+        if cancel_above or cancel_below:
+            self.positions_to_open.remove(position_to_open)
+            canceling_position_log_info = {
+                "_id": position_to_open._id,
+                "price": (
+                    f"$ {round(last_candle.close, EXCHANGE_PRICE_PRECISION):,} is "
+                    + (f"above" if cancel_above else "below")
+                    + f" $ {round((position_to_open.cancel_above if cancel_above else position_to_open.cancel_below), EXCHANGE_PRICE_PRECISION):,}"
+                ),
+                "status": "canceled",
+                "reason": "price moved beyond 'no order' threshold",
+            }
+            logger.info(f"{canceling_position_log_info=}")
+            if USE_DISCORD:
+                self.discord_message_queue.append(
+                    DiscordMessage(
+                        channel_id=DISCORD_CHANNEL_WAITING_ID,
+                        messages=[get_discord_table(canceling_position_log_info)],
+                    )
+                )
+            return
+
+        # are conditions not met to open a position?
+        if not long_above and not short_below:
             logger.info(
-                (f"{live_position_size=} - " if USE_LIVE_STRATEGY else "")
-                + (f"{journaling_position_size=} - " if USE_JOURNALING_STRATEGY else "")
+                f"Conditions for {position_to_open._id} not met to open position around {last_candle.close=}"
+            )
+            for position in self.positions_to_open:
+                if position._id == position_to_open._id:
+                    if not position.past_first_candle:
+                        position.past_first_candle = True
+            return
+
+        # at this point, we either enter or cancel
+        self.positions_to_open.remove(position_to_open)
+
+        # skip if we have not yet passed the first candle after confirmation
+        if not position_to_open.past_first_candle:
+            canceling_position_log_info = {
+                "_id": position_to_open._id,
+                "price": (
+                    f"$ {round(last_candle.close, EXCHANGE_PRICE_PRECISION):,} is "
+                    + (f"above" if long_above else "below")
+                    + f" $ {round((position_to_open.long_above if long_above else position_to_open.short_below), EXCHANGE_PRICE_PRECISION):,}"
+                ),
+                "status": "canceled",
+                "reason": "need at least 2 candles after confirmation",
+            }
+            logger.info(f"{canceling_position_log_info=}")
+            if USE_DISCORD:
+                self.discord_message_queue.append(
+                    DiscordMessage(
+                        channel_id=DISCORD_CHANNEL_WAITING_ID,
+                        messages=[get_discord_table(canceling_position_log_info)],
+                    )
+                )
+            return
+
+        # if outside entry days/hours, do not open position
+        if (
+            self.scanner.now.weekday() not in ENTRY_DAYS
+            or self.scanner.now.hour not in ENTRY_HOURS
+        ):
+            not_entering_position_log_info = {
+                "_id": position_to_open._id,
+                "price": (
+                    f"$ {round(last_candle.close, EXCHANGE_PRICE_PRECISION):,} is "
+                    + ("above" if long_above else "below")
+                    + f" $ {round(position_to_open.long_above if long_above else position_to_open.short_below, EXCHANGE_PRICE_PRECISION):,}"
+                ),
+                "status": "canceled",
+                "reason": "outside entry days / hours",
+            }
+            if USE_DISCORD:
+                self.discord_message_queue.append(
+                    DiscordMessage(
+                        channel_id=DISCORD_CHANNEL_WAITING_ID,
+                        messages=[get_discord_table(not_entering_position_log_info)],
+                    )
+                )
+            return
+
+        # long_above or short_below conditions met, open position
+        logger.info(
+            f"Conditions met to open {'LONG' if long_above else 'SHORT'} "
+            + f"position around {last_candle.close=}"
+        )
+        if USE_DISCORD:
+            prive_above_or_below = (
+                position_to_open.long_above
+                if long_above
+                else position_to_open.short_below
+            )
+            entering_position_log_info = {
+                "_id": position_to_open._id,
+                "price": (
+                    f"$ {round(last_candle.close, EXCHANGE_PRICE_PRECISION):,} is "
+                    + ("above" if long_above else "below")
+                    + f" $ {round(prive_above_or_below, EXCHANGE_PRICE_PRECISION):,}"
+                ),
+                "status": "entering " + (LONG if long_above else SHORT),
+            }
+            self.discord_message_queue.append(
+                DiscordMessage(
+                    channel_id=DISCORD_CHANNEL_WAITING_ID,
+                    messages=[get_discord_table(entering_position_log_info)],
+                )
             )
 
-            if USE_LIVE_STRATEGY:
-                self._live_position_size = live_position_size
-            if USE_JOURNALING_STRATEGY:
-                self._journaling_position_size = journaling_position_size
+        price, stoploss_price, takeprofit_price = await self.limit_order_placement(
+            direction=LONG if long_above else SHORT,
+            amount=self.position_size,
+            stoploss_percentage=SL_PERCENTAGE,
+            takeprofit_percentage=TP_PERCENTAGE,
+        )
 
-    @property
-    def live_position_size(self) -> int:
-        """Get the live position size for the exchange"""
+        if USE_DISCORD:
+            await self.post_trade_to_discord(
+                _id=position_to_open.liquidation._id,
+                direction=LONG if long_above else SHORT,
+                price=price,
+                stoploss_price=stoploss_price,
+                takeprofit_price=takeprofit_price,
+                amount=self.position_size,
+            )
 
-        return self._live_position_size
+    async def check_if_entry_orders_are_closed(self) -> None:
+        """Check if entry limit orders are filled to place take profit limit orders"""
 
-    @property
-    def journaling_position_size(self) -> int:
-        """Get the journaling position size for the exchange"""
+        # check if limit entry order is filled
+        try:
+            # get closed orders info
+            orders_info = await self.exchange.fetch_closed_orders(
+                symbol=TICKER,
+                since=int((datetime.now() - timedelta(hours=24)).timestamp() * 1000),
+                limit=100,
+            )
+        except Exception as e:
+            orders_info = []
+            logger.error(f"Error fetching order info: {e}")
+            if USE_DISCORD:
+                self.discord_message_queue.append(
+                    DiscordMessage(
+                        channel_id=DISCORD_CHANNEL_HEARTBEAT_ID,
+                        messages=[
+                            "Error fetching closed order info from exchange:",
+                            str(e),
+                        ],
+                    )
+                )
 
-        return self._journaling_position_size
+        for tp_limit_order_to_place in deepcopy(self.tp_limit_orders_to_place):
+            await self.handle_tp_limit_order_to_place(
+                orders_info=orders_info,
+                tp_limit_order_to_place=tp_limit_order_to_place,
+            )
+
+    async def handle_tp_limit_order_to_place(
+        self, orders_info: dict, tp_limit_order_to_place: TPLimitOrderToPlace
+    ) -> None:
+        """Handle take profit limit order placement after entry order is filled"""
+
+        # loop over closed orders to find the one matching our limit order
+        for order_info in orders_info:
+            if (
+                str(order_info.get("id")) == str(tp_limit_order_to_place.order_id)
+                and order_info.get("info", {}).get("state") == "filled"
+            ):
+                logger.info(f"Limit order filled, time to add take profit")
+                self.tp_limit_orders_to_place.remove(tp_limit_order_to_place)
+
+                # add take profit limit order
+                try:
+                    await self.exchange.create_order(
+                        symbol=TICKER,
+                        type="limit",
+                        side=(
+                            "buy"
+                            if tp_limit_order_to_place.direction == SHORT
+                            else "sell"
+                        ),
+                        amount=tp_limit_order_to_place.amount,
+                        price=tp_limit_order_to_place.takeprofit_price,
+                        params=dict(
+                            marginMode="isolated",
+                            positionSide=tp_limit_order_to_place.direction,
+                            reduceOnly=True,
+                        ),
+                    )
+                except Exception as e:
+                    logger.error(f"Error placing take profit order: {e}")
+                    if USE_DISCORD:
+                        self.discord_message_queue.append(
+                            DiscordMessage(
+                                channel_id=DISCORD_CHANNEL_HEARTBEAT_ID,
+                                messages=[
+                                    "Error placing take profit order:",
+                                    str(e),
+                                ],
+                            )
+                        )
+
+    async def handle_liquidation(
+        self, liquidation: Liquidation, last_candle: Candle
+    ) -> None:
+        """Handle 1 liquidation inside self.liquidation_set.liquidations"""
+
+        liquidation_datetime: datetime = datetime.fromtimestamp(
+            liquidation.candle.timestamp / 1000
+        )
+        # check if confirmation is within 2 candles after liquidation candle
+        if liquidation_datetime < (
+            self.scanner.now.replace(second=0, microsecond=0) - timedelta(minutes=15)
+        ):
+            logger.info(f"Removing old liquidation: {liquidation._id}")
+            self.liquidation_set.liquidations.remove(liquidation)
+            return
+
+        # if reaction to liquidation is strong, add it to positions to open
+        if await self.reaction_to_liquidation_is_strong(liquidation, last_candle.close):
+            now = self.scanner.now.replace(second=0, microsecond=0)
+            candles_before_confirmation = (
+                int(round((now - liquidation_datetime).total_seconds() / 300, 0)) - 1
+            )
+            self.liquidation_set.liquidations.remove(liquidation)
+
+            long_above = short_below = cancel_above = cancel_below = None
+            if liquidation.direction == LONG:
+                short_below = round(last_candle.close * 0.995, EXCHANGE_PRICE_PRECISION)
+                if candles_before_confirmation > 1:
+                    cancel_above = round(
+                        last_candle.close * 1.005, EXCHANGE_PRICE_PRECISION
+                    )
+                else:
+                    long_above = round(
+                        last_candle.close * 1.005, EXCHANGE_PRICE_PRECISION
+                    )
+            elif liquidation.direction == SHORT:
+                long_above = round(last_candle.close * 1.005, EXCHANGE_PRICE_PRECISION)
+                if candles_before_confirmation > 1:
+                    cancel_below = round(
+                        last_candle.close * 0.995, EXCHANGE_PRICE_PRECISION
+                    )
+                else:
+                    short_below = round(
+                        last_candle.close * 0.995, EXCHANGE_PRICE_PRECISION
+                    )
+
+            position_to_open = PositionToOpen(
+                _id=liquidation._id,
+                liquidation=liquidation,
+                candles_before_confirmation=candles_before_confirmation,
+                long_above=long_above,
+                short_below=short_below,
+                cancel_above=cancel_above,
+                cancel_below=cancel_below,
+                past_first_candle=False,
+            )
+            self.positions_to_open.append(position_to_open)
+            if USE_DISCORD:
+                position_to_enter_log_info = position_to_open.init_message_dict()
+                logger.info(f"{position_to_enter_log_info=}")
+                self.discord_message_queue.append(
+                    DiscordMessage(
+                        channel_id=DISCORD_CHANNEL_WAITING_ID,
+                        messages=[
+                            get_discord_table(position_to_enter_log_info),
+                        ],
+                        at_everyone=USE_AT_EVERYONE,
+                    )
+                )
 
     async def run_loop(self, last_candle: Candle) -> None:
         """Run the loop for the exchange"""
 
         for position_to_open in deepcopy(self.positions_to_open):
-            long_above: bool = (
-                position_to_open.long_above
-                and last_candle.close > position_to_open.long_above
-            )
-            short_below: bool = (
-                position_to_open.short_below
-                and last_candle.close < position_to_open.short_below
-            )
-            cancel_above: bool = (
-                position_to_open.cancel_above
-                and last_candle.close > position_to_open.cancel_above
-            )
-            cancel_below: bool = (
-                position_to_open.cancel_below
-                and last_candle.close < position_to_open.cancel_below
-            )
-
-            # should the trade be canceled due to price moving above cancel_above?
-            if cancel_above or cancel_below:
-                canceling_position_log_info = {
-                    "_id": position_to_open._id,
-                    "price": (
-                        f"$ {round(last_candle.close, EXCHANGE_PRICE_PRECISION):,} is "
-                        + (f"above" if cancel_above else "below")
-                        + f" $ {round((position_to_open.cancel_above if cancel_above else position_to_open.cancel_below), EXCHANGE_PRICE_PRECISION):,}"
-                    ),
-                    "status": "canceled",
-                }
-                logger.info(f"{canceling_position_log_info=}")
-                if USE_DISCORD:
-                    self.discord_message_queue.append(
-                        DiscordMessage(
-                            channel_id=DISCORD_CHANNEL_WAITING_ID,
-                            messages=[get_discord_table(canceling_position_log_info)],
-                        )
-                    )
-                self.positions_to_open.remove(position_to_open)
-                continue
-
-            # are conditions not met to open a position?
-            if not long_above and not short_below:
-                logger.info(
-                    f"Conditions for {position_to_open._id} not met to open position around {last_candle.close=}"
-                )
-                continue
-
-            # long_above or short_below conditions met, open position
-            self.positions_to_open.remove(position_to_open)
-            logger.info(
-                f"Conditions met to open {'LONG' if long_above else 'SHORT'} "
-                + f"position around {last_candle.close=}"
-            )
-            if USE_DISCORD and position_to_open.strategy_type != JOURNALING:
-                prive_above_or_below = (
-                    position_to_open.long_above
-                    if long_above
-                    else position_to_open.short_below
-                )
-                entering_position_log_info = {
-                    "_id": position_to_open._id,
-                    "price": (
-                        f"$ {round(last_candle.close, EXCHANGE_PRICE_PRECISION):,} is "
-                        + ("above" if long_above else "below")
-                        + f" $ {round(prive_above_or_below, EXCHANGE_PRICE_PRECISION):,}"
-                    ),
-                    "status": "entering " + (LONG if long_above else SHORT),
-                }
-                if USE_DISCORD:
-                    self.discord_message_queue.append(
-                        DiscordMessage(
-                            channel_id=DISCORD_CHANNEL_WAITING_ID,
-                            messages=[get_discord_table(entering_position_log_info)],
-                        )
-                    )
-
-            await self.apply_strategy(
-                strategy_type=position_to_open.strategy_type,
-                liquidation=position_to_open.liquidation,
-                direction=(
-                    LONG
-                    if long_above and last_candle.close > position_to_open.long_above
-                    else SHORT
-                ),
-            )
+            await self.handle_position_to_open(position_to_open, last_candle)
 
         if self.tp_limit_orders_to_place:
-
-            # check if limit order is filled
-            try:
-                # get closed orders info
-                orders_info = await self.exchange.fetch_closed_orders(
-                    symbol=TICKER,
-                    since=int(
-                        (datetime.now() - timedelta(hours=12)).timestamp() * 1000
-                    ),
-                    limit=100,
-                )
-            except Exception as e:
-                orders_info = []
-                logger.error(f"Error fetching order info: {e}")
-                if USE_DISCORD:
-                    self.discord_message_queue.append(
-                        DiscordMessage(
-                            channel_id=DISCORD_CHANNEL_HEARTBEAT_ID,
-                            messages=[
-                                "Error fetching closed order info from exchange:",
-                                str(e),
-                            ],
-                        )
-                    )
-
-            for tp_limit_order_to_place in deepcopy(self.tp_limit_orders_to_place):
-
-                # loop over closed orders to find the one matching our limit order
-                for order_info in orders_info:
-                    if (
-                        str(order_info.get("id"))
-                        == str(tp_limit_order_to_place.order_id)
-                        and order_info.get("info", {}).get("state") == "filled"
-                    ):
-                        logger.info(f"Limit order filled, time to add take profit")
-                        self.tp_limit_orders_to_place.remove(tp_limit_order_to_place)
-
-                        # add take profit limit order
-                        try:
-                            await self.exchange.create_order(
-                                symbol=TICKER,
-                                type="limit",
-                                side=(
-                                    "buy"
-                                    if tp_limit_order_to_place.direction == SHORT
-                                    else "sell"
-                                ),
-                                amount=tp_limit_order_to_place.amount,
-                                price=tp_limit_order_to_place.takeprofit_price,
-                                params=dict(
-                                    marginMode="isolated",
-                                    positionSide=tp_limit_order_to_place.direction,
-                                    reduceOnly=True,
-                                ),
-                            )
-                        except Exception as e:
-                            logger.error(f"Error placing take profit order: {e}")
-                            if USE_DISCORD:
-                                self.discord_message_queue.append(
-                                    DiscordMessage(
-                                        channel_id=DISCORD_CHANNEL_HEARTBEAT_ID,
-                                        messages=[
-                                            "Error placing take profit order:",
-                                            str(e),
-                                        ],
-                                    )
-                                )
+            await self.check_if_entry_orders_are_closed()
 
         # loop over detected liquidations
         for liquidation in deepcopy(self.liquidation_set.liquidations):
-
-            liquidation_datetime: datetime = datetime.fromtimestamp(
-                liquidation.candle.timestamp / 1000
-            )
-            # check if confirmation is within 2 candles after liquidation candle
-            if liquidation_datetime < (
-                self.scanner.now.replace(second=0, microsecond=0)
-                - timedelta(minutes=15)
-            ):
-                logger.info(f"Removing old liquidation: {liquidation._id}")
-                self.liquidation_set.liquidations.remove(liquidation)
-                continue
-
-            # if reaction to liquidation is strong, add it to positions to open
-            if await self.reaction_to_liquidation_is_strong(
-                liquidation, last_candle.close
-            ):
-                now = self.scanner.now.replace(second=0, microsecond=0)
-                candles_before_entry = (
-                    int(round((now - liquidation_datetime).total_seconds() / 300, 0))
-                    - 1
-                )
-                if USE_LIVE_STRATEGY and (
-                    liquidation_datetime.weekday() in LIVE_TRADING_DAYS
-                    and liquidation_datetime.hour in LIVE_TRADING_HOURS
-                ):
-                    strategy_type = LIVE
-                elif USE_JOURNALING_STRATEGY and (
-                    liquidation_datetime.weekday() in JOURNALING_TRADING_DAYS
-                    and liquidation_datetime.hour in JOURNALING_TRADING_HOURS
-                ):
-                    strategy_type = JOURNALING
-                else:
-                    logger.info(
-                        "Outside trading hours/days, not adding position to open."
-                    )
-                    continue
-
-                long_above = short_below = cancel_above = cancel_below = None
-                if liquidation.direction == LONG:
-                    short_below = round(
-                        last_candle.close * 0.995, EXCHANGE_PRICE_PRECISION
-                    )
-                    if candles_before_entry > 1:
-                        cancel_above = round(
-                            last_candle.close * 1.005, EXCHANGE_PRICE_PRECISION
-                        )
-                    else:
-                        long_above = round(
-                            last_candle.close * 1.005, EXCHANGE_PRICE_PRECISION
-                        )
-                elif liquidation.direction == SHORT:
-                    long_above = round(
-                        last_candle.close * 1.005, EXCHANGE_PRICE_PRECISION
-                    )
-                    if candles_before_entry > 1:
-                        cancel_below = round(
-                            last_candle.close * 0.995, EXCHANGE_PRICE_PRECISION
-                        )
-                    else:
-                        short_below = round(
-                            last_candle.close * 0.995, EXCHANGE_PRICE_PRECISION
-                        )
-
-                position_to_open = PositionToOpen(
-                    _id=liquidation._id,
-                    strategy_type=strategy_type,
-                    liquidation=liquidation,
-                    candles_before_entry=candles_before_entry,
-                    long_above=long_above,
-                    short_below=short_below,
-                    cancel_above=cancel_above,
-                    cancel_below=cancel_below,
-                )
-                self.positions_to_open.append(position_to_open)
-                self.liquidation_set.liquidations.remove(liquidation)
-                if USE_DISCORD and strategy_type != JOURNALING:
-                    position_to_enter_log_info = position_to_open.init_message_dict()
-                    logger.info(f"{position_to_enter_log_info=}")
-                    self.discord_message_queue.append(
-                        DiscordMessage(
-                            channel_id=DISCORD_CHANNEL_WAITING_ID,
-                            messages=[
-                                get_discord_table(position_to_enter_log_info),
-                            ],
-                            at_everyone=USE_AT_EVERYONE,
-                        )
-                    )
+            await self.handle_liquidation(liquidation, last_candle)
 
     async def reaction_to_liquidation_is_strong(
         self, liquidation: Liquidation, price: float
@@ -655,58 +634,6 @@ class Exchange:
         ):
             return True
         return False
-
-    async def apply_strategy(
-        self,
-        strategy_type: str,
-        liquidation: Liquidation,
-        direction: str,
-    ) -> None:
-        """Apply the strategy during trading hours and days"""
-
-        if USE_LIVE_STRATEGY and strategy_type == LIVE:
-            amount = self.live_position_size
-            strategy_type = LIVE
-            stoploss_percentage = LIVE_SL_PERCENTAGE
-            takeprofit_percentage = LIVE_TP_PERCENTAGE
-            post_to_discord = True
-        elif USE_JOURNALING_STRATEGY and strategy_type == JOURNALING:
-            amount = self.journaling_position_size
-            strategy_type = JOURNALING
-            stoploss_percentage = JOURNALING_SL_PERCENTAGE
-            takeprofit_percentage = JOURNALING_TP_PERCENTAGE
-            post_to_discord = False
-        else:
-            logger.info("Outside trading hours/days, not applying strategy.")
-            return
-
-        price, stoploss_price, takeprofit_price = await self.limit_order_placement(
-            direction=direction,
-            amount=amount,
-            stoploss_percentage=stoploss_percentage,
-            takeprofit_percentage=takeprofit_percentage,
-        )
-
-        if USE_AUTO_JOURNALING:
-            await self.log_to_backend(
-                direction=direction,
-                liquidation=liquidation,
-                price=price,
-                stoploss_price=stoploss_price,
-                takeprofit_price=takeprofit_price,
-                amount=round(amount / 1000, 4),
-                strategy_type=strategy_type,
-            )
-
-        if USE_DISCORD and post_to_discord:
-            await self.post_trade_to_discord(
-                _id=liquidation._id,
-                direction=direction,
-                price=price,
-                stoploss_price=stoploss_price,
-                takeprofit_price=takeprofit_price,
-                amount=amount,
-            )
 
     async def get_sl_and_tp_price(
         self,
@@ -854,71 +781,6 @@ class Exchange:
                         channel_id=DISCORD_CHANNEL_HEARTBEAT_ID,
                         messages=[
                             "Error logging order:",
-                            str(e),
-                        ],
-                    )
-                )
-
-    async def log_to_backend(
-        self,
-        direction: str,
-        liquidation: Liquidation,
-        price: float,
-        stoploss_price: float,
-        takeprofit_price: float,
-        amount: float,
-        strategy_type: str,
-    ) -> None:
-        """Log the order details to the backend"""
-
-        try:
-            response = None
-            try:
-                data = dict(
-                    start=f"{self.scanner.now.replace(second=0, microsecond=0)}",
-                    entry_price=price,
-                    candles_before_entry=1,
-                    side=direction.upper(),
-                    amount=amount,
-                    take_profit_price=takeprofit_price,
-                    stop_loss_price=stoploss_price,
-                    liquidation_amount=int(
-                        self.liquidation_set.total_amount(liquidation.direction)
-                    ),
-                    strategy_type=strategy_type,
-                    nr_of_liquidations=liquidation.nr_of_liquidations,
-                )
-                response = requests.post(
-                    f"{JOURNAL_HOST_AND_PORT}/api/positions/",
-                    headers={"Authorization": f"Api-Key {JOURNALING_API_KEY}"},
-                    data=data,
-                )
-                response.raise_for_status()
-                logger.info(f"Position journaled: {response.json()}")
-            except Exception as e:
-                logger.error(
-                    f"Error journaling position 1/2: {response.content if response else 'No response'}"
-                )
-                logger.error(f"Error journaling position 2/2: {e}")
-                if USE_DISCORD:
-                    self.discord_message_queue.append(
-                        DiscordMessage(
-                            channel_id=DISCORD_CHANNEL_HEARTBEAT_ID,
-                            messages=[
-                                "Error journaling position:",
-                                str(e),
-                            ],
-                        )
-                    )
-
-        except Exception as e:
-            logger.error(f"Error logging order: {e}")
-            if USE_DISCORD:
-                self.discord_message_queue.append(
-                    DiscordMessage(
-                        channel_id=DISCORD_CHANNEL_HEARTBEAT_ID,
-                        messages=[
-                            "Error logging order to backend:",
                             str(e),
                         ],
                     )

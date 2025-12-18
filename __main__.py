@@ -1,8 +1,7 @@
 from asyncio import run, sleep
 from copy import deepcopy
-from datetime import datetime, timedelta
+from datetime import datetime
 
-import ccxt
 from logger import logger
 from misc import Candle, DiscordMessage, Liquidation, LiquidationSet
 import threading
@@ -19,28 +18,17 @@ if USE_DISCORD:
         N_MINUTES_TIMEDELTA,
         MINIMAL_LIQUIDATION,
         MINIMAL_NR_OF_LIQUIDATIONS,
+        LIQUIDATION_DAYS,
+        LIQUIDATION_HOURS,
     )
     from discord_client import post_to_discord, DISCORD_CHANNEL_HEARTBEAT_ID
     from exchange import (
         USE_FIXED_RISK,
-        USE_LIVE_STRATEGY,
-        USE_JOURNALING_STRATEGY,
+        SL_PERCENTAGE,
+        TP_PERCENTAGE,
+        ENTRY_DAYS,
+        ENTRY_HOURS,
     )
-
-    if USE_LIVE_STRATEGY:
-        from exchange import (
-            LIVE_SL_PERCENTAGE,
-            LIVE_TP_PERCENTAGE,
-            LIVE_TRADING_DAYS,
-            LIVE_TRADING_HOURS,
-        )
-    if USE_JOURNALING_STRATEGY:
-        from exchange import (
-            JOURNALING_SL_PERCENTAGE,
-            JOURNALING_TP_PERCENTAGE,
-            JOURNALING_TRADING_DAYS,
-            JOURNALING_TRADING_HOURS,
-        )
 
     DISCORD_SETTINGS = dict(
         use_fixed_risk=USE_FIXED_RISK,
@@ -49,6 +37,12 @@ if USE_DISCORD:
         minimal_nr_of_liquidations=MINIMAL_NR_OF_LIQUIDATIONS,
         minimal_liquidation=MINIMAL_LIQUIDATION,
         interval=INTERVAL,
+        sl_percentage=SL_PERCENTAGE,
+        tp_percentage=TP_PERCENTAGE,
+        liquidation_days=LIQUIDATION_DAYS,
+        liquidation_hours=LIQUIDATION_HOURS,
+        entry_days=ENTRY_DAYS,
+        entry_hours=ENTRY_HOURS,
     )
 
     if USE_FIXED_RISK:
@@ -60,17 +54,6 @@ if USE_DISCORD:
 
         DISCORD_SETTINGS["position_percentage"] = POSITION_PERCENTAGE
 
-    if USE_LIVE_STRATEGY:
-        DISCORD_SETTINGS["live_sl_percentage"] = LIVE_SL_PERCENTAGE
-        DISCORD_SETTINGS["live_tp_percentage"] = LIVE_TP_PERCENTAGE
-        DISCORD_SETTINGS["live_trading_days"] = LIVE_TRADING_DAYS
-        DISCORD_SETTINGS["live_trading_hours"] = LIVE_TRADING_HOURS
-
-    if USE_JOURNALING_STRATEGY:
-        DISCORD_SETTINGS["journaling_sl_percentage"] = JOURNALING_SL_PERCENTAGE
-        DISCORD_SETTINGS["journaling_tp_percentage"] = JOURNALING_TP_PERCENTAGE
-        DISCORD_SETTINGS["journaling_trading_days"] = JOURNALING_TRADING_DAYS
-        DISCORD_SETTINGS["journaling_trading_hours"] = JOURNALING_TRADING_HOURS
 
 LIQUIDATIONS: List[Liquidation] = []
 LIQUIDATION_SET: LiquidationSet = LiquidationSet(liquidations=LIQUIDATIONS)
