@@ -71,7 +71,7 @@ logger.info(f"{ENTRY_DAYS=}")
 ENTRY_HOURS = config(
     "ENTRY_HOURS",
     cast=Csv(int),
-    default="2,5,9,10,11,12,13,15,16,17,19,21,23",
+    default="0,5,7,8,9,10,11,12,13,16,17,18,19,21,23",
 )
 logger.info(f"{ENTRY_HOURS=}")
 
