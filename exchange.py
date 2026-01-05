@@ -277,7 +277,9 @@ class Exchange:
 
             # calculate position size
             if USE_FIXED_RISK:
-                usdt_size: float = FIXED_RISK_EX_FEES * SL_PERCENTAGE * LEVERAGE
+                usdt_size: float = (
+                    FIXED_RISK_EX_FEES / SL_PERCENTAGE * 1 / LEVERAGE * 100
+                )
             else:
                 usdt_size: float = (
                     total_balance / (SL_PERCENTAGE * LEVERAGE)
