@@ -1,12 +1,12 @@
-aiodns==3.6.0
+aiodns==3.6.1
 aiohappyeyeballs==2.6.1
-aiohttp==3.13.2
+aiohttp==3.13.3
 aiosignal==1.4.0
 async-timeout==5.0.1
 attrs==25.4.0
 audioop-lts==0.2.2
-ccxt==4.5.24
-certifi==2025.11.12
+ccxt==4.5.30
+certifi==2026.1.4
 cffi==2.0.0
 charset-normalizer==3.4.4
 cryptography==46.0.3
@@ -23,6 +23,6 @@ PyYAML==6.0.3
 requests==2.32.5
 setuptools==80.9.0
 typing_extensions==4.15.0
-urllib3==2.6.0
+urllib3==2.6.2
 wcwidth==0.2.14
 yarl==1.22.0

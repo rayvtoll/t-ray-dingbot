@@ -1,3 +1,4 @@
+from asyncio import sleep
 from copy import deepcopy
 import ccxt.pro as ccxt
 from coinalyze_scanner import CoinalyzeScanner
@@ -64,16 +65,8 @@ else:
 # strategy
 SL_PERCENTAGE = config("SL_PERCENTAGE", cast=float, default="1")
 logger.info(f"{SL_PERCENTAGE=}")
-TP_PERCENTAGE = config("TP_PERCENTAGE", cast=float, default="4")
+TP_PERCENTAGE = config("TP_PERCENTAGE", cast=float, default="2")
 logger.info(f"{TP_PERCENTAGE=}")
-ENTRY_DAYS = config("ENTRY_DAYS", cast=Csv(int), default="0,1,2,3,4,5,6")
-logger.info(f"{ENTRY_DAYS=}")
-ENTRY_HOURS = config(
-    "ENTRY_HOURS",
-    cast=Csv(int),
-    default="0,5,7,8,9,10,11,12,13,16,17,18,19,21,23",
-)
-logger.info(f"{ENTRY_HOURS=}")
 
 
 class Exchange:
@@ -398,30 +391,6 @@ class Exchange:
                 )
             return
 
-        # if outside entry days/hours, do not open position
-        if (
-            self.scanner.now.weekday() not in ENTRY_DAYS
-            or self.scanner.now.hour not in ENTRY_HOURS
-        ):
-            not_entering_position_log_info = {
-                "_id": position_to_open._id,
-                "price": (
-                    f"$ {round(last_candle.close, EXCHANGE_PRICE_PRECISION):,} is "
-                    + ("above" if long_above else "below")
-                    + f" $ {round(position_to_open.long_above if long_above else position_to_open.short_below, EXCHANGE_PRICE_PRECISION):,}"
-                ),
-                "status": "canceled",
-                "reason": "outside entry days / hours",
-            }
-            if USE_DISCORD:
-                self.discord_message_queue.append(
-                    DiscordMessage(
-                        channel_id=DISCORD_CHANNEL_WAITING_ID,
-                        messages=[get_discord_table(not_entering_position_log_info)],
-                    )
-                )
-            return
-
         # long_above or short_below conditions met, open position
         logger.info(
             f"Conditions met to open {'LONG' if long_above else 'SHORT'} "
@@ -617,6 +586,7 @@ class Exchange:
 
         for position_to_open in deepcopy(self.positions_to_open):
             await self.handle_position_to_open(position_to_open, last_candle)
+            await sleep(1)
 
         if self.tp_limit_orders_to_place:
             await self.check_if_entry_orders_are_closed()

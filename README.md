@@ -25,10 +25,6 @@ If you want to customize the strategy variables add the following to your liking
 
     SL_PERCENTAGE=
     TP_PERCENTAGE=
-    LIQUIDATION_DAYS=
-    LIQUIDATION_HOURS=
-    ENTRY_DAYS=
-    ENTRY_HOURS=
 
 
 If you want to use a discord bot you must add the following variables:

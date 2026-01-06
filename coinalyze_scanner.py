@@ -28,12 +28,12 @@ N_MINUTES_TIMEDELTA = config("N_MINUTES_TIMEDELTA", default="5", cast=int)
 logger.info(f"{N_MINUTES_TIMEDELTA=}")
 INTERVAL = config("INTERVAL", default="5min")
 logger.info(f"{INTERVAL=}")
-LIQUIDATION_DAYS = config("LIQUIDATION_DAYS", cast=Csv(int), default="0,1,2,3,4,5,6")
+LIQUIDATION_DAYS = config("LIQUIDATION_DAYS", cast=Csv(int), default="0,1,2,3,4")
 logger.info(f"{LIQUIDATION_DAYS=}")
 LIQUIDATION_HOURS = config(
     "LIQUIDATION_HOURS",
     cast=Csv(int),
-    default="2,4,5,6,10,11,14,15,16,17,18,19,22",
+    default="2,3,4,5,15,16,17,18",
 )
 logger.info(f"{LIQUIDATION_HOURS=}")
 
