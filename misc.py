@@ -99,7 +99,6 @@ class PositionToOpen:
     cancel_above: float | None
     short_below: float | None
     cancel_below: float | None
-    past_first_candle: bool = False
 
     def init_message_dict(self) -> dict:
         """Initialize the message dictionary for the position to open."""

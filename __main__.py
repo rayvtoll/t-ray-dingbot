@@ -26,6 +26,7 @@ if USE_DISCORD:
         USE_FIXED_RISK,
         SL_PERCENTAGE,
         TP_PERCENTAGE,
+        FORBIDDEN_NR_OF_CANDLES_BEFORE_ENTRY,
     )
 
     DISCORD_SETTINGS = dict(
@@ -39,6 +40,7 @@ if USE_DISCORD:
         tp_percentage=TP_PERCENTAGE,
         liquidation_days=LIQUIDATION_DAYS,
         liquidation_hours=LIQUIDATION_HOURS,
+        forbidden_nr_of_candles_before_entry=FORBIDDEN_NR_OF_CANDLES_BEFORE_ENTRY,
     )
 
     if USE_FIXED_RISK:

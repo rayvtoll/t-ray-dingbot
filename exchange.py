@@ -67,6 +67,11 @@ SL_PERCENTAGE = config("SL_PERCENTAGE", cast=float, default="1")
 logger.info(f"{SL_PERCENTAGE=}")
 TP_PERCENTAGE = config("TP_PERCENTAGE", cast=float, default="2")
 logger.info(f"{TP_PERCENTAGE=}")
+FORBIDDEN_NR_OF_CANDLES_BEFORE_ENTRY = config(
+    "FORBIDDEN_NR_OF_CANDLES_BEFORE_ENTRY",
+    cast=Csv(int),
+    default="1,10,11,12,13",
+)
 
 
 class Exchange:
@@ -360,17 +365,22 @@ class Exchange:
             logger.info(
                 f"Conditions for {position_to_open._id} not met to open position around {last_candle.close=}"
             )
-            for position in self.positions_to_open:
-                if position._id == position_to_open._id:
-                    if not position.past_first_candle:
-                        position.past_first_candle = True
             return
 
         # at this point, we either enter or cancel
         self.positions_to_open.remove(position_to_open)
 
-        # skip if we have not yet passed the first candle after confirmation
-        if not position_to_open.past_first_candle:
+        # calculate number of candles before entry
+        first_candle_after_confirmation = datetime.fromtimestamp(
+            position_to_open.liquidation.time
+        ) + (position_to_open.candles_before_confirmation + 1) * timedelta(minutes=5)
+        nr_of_candles_before_entry = (
+            self.scanner.now.replace(second=0, microsecond=0)
+            - first_candle_after_confirmation
+        ).seconds // 300
+        logger.info(f"{nr_of_candles_before_entry=}")
+
+        if nr_of_candles_before_entry in FORBIDDEN_NR_OF_CANDLES_BEFORE_ENTRY:
             canceling_position_log_info = {
                 "_id": position_to_open._id,
                 "price": (
@@ -379,7 +389,7 @@ class Exchange:
                     + f" $ {round((position_to_open.long_above if long_above else position_to_open.short_below), EXCHANGE_PRICE_PRECISION):,}"
                 ),
                 "status": "canceled",
-                "reason": "need at least 2 candles after confirmation",
+                "reason": f"number of candles before entry can not be {nr_of_candles_before_entry}",
             }
             logger.info(f"{canceling_position_log_info=}")
             if USE_DISCORD:
