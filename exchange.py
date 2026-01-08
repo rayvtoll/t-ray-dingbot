@@ -575,7 +575,6 @@ class Exchange:
                 short_below=short_below,
                 cancel_above=cancel_above,
                 cancel_below=cancel_below,
-                past_first_candle=False,
             )
             self.positions_to_open.append(position_to_open)
             if USE_DISCORD:
