@@ -538,7 +538,8 @@ class Exchange:
         try:
             # try the current day first
             algorithm_input: pd.DataFrame = pd.read_csv(
-                f"algorithm_input/algorithm_input-{input_date}-{strategy_type}.csv"
+                # TODO: BTC only for now, make it dynamic later
+                f"algorithm_input/algorithm_input-BTCUSDT-{input_date}-{strategy_type}-lvl2.csv"
             )
             return algorithm_input
         except:
@@ -551,7 +552,11 @@ class Exchange:
             file_names = [
                 name
                 for name in file_names
-                if (name.startswith("algorithm_input-") and strategy_type in name)
+                if (
+                    name.startswith("algorithm_input-BTCUSDT-")
+                    and strategy_type in name
+                    and name.endswith("lvl2.csv")
+                )
             ]
             file_names.sort()
             last_file_name = file_names[-1]
@@ -584,19 +589,6 @@ class Exchange:
             )
             self.liquidation_set.liquidations.remove(liquidation)
 
-            # read live algorithm input file
-            live_trade: bool = False
-            live_algorithm_input: pd.DataFrame = await self.get_algorithm_input_file(
-                strategy_type="live", input_date=liquidation_datetime.date()
-            )
-            for row in live_algorithm_input.itertuples():
-                if row.hour == liquidation_datetime.hour:
-                    live_trade = row.trade
-                    if live_trade:
-                        live_tp: float = row.tp
-                        live_weight: float = row.weight
-                        live_sl: float = row.sl
-
             # read reversed algorithm input file
             reversed_trade: bool = False
             reversed_algorithm_input: pd.DataFrame = (
@@ -606,7 +598,7 @@ class Exchange:
             )
             for row in reversed_algorithm_input.itertuples():
                 if row.hour == liquidation_datetime.hour:
-                    reversed_trade = row.trade
+                    reversed_trade = row.trade_lvl2
                     if reversed_trade:
                         reversed_tp: float = row.tp
                         reversed_weight: float = row.weight
@@ -617,7 +609,7 @@ class Exchange:
             ) = long_weight = cancel_above = cancel_below = None
 
             if liquidation.direction == LONG:
-                below_price = round(last_candle.close * 0.995, EXCHANGE_PRICE_PRECISION)
+                below_price = round(last_candle.close * 0.996, EXCHANGE_PRICE_PRECISION)
                 if reversed_trade:
                     short_below = below_price
                     short_tp = reversed_tp
@@ -626,20 +618,12 @@ class Exchange:
                 else:
                     cancel_below = below_price
 
-                above_price = round(last_candle.close * 1.005, EXCHANGE_PRICE_PRECISION)
-                if candles_before_confirmation > 1:
-                    cancel_above = above_price
-                else:
-                    if live_trade:
-                        long_above = above_price
-                        long_tp = live_tp
-                        long_sl = live_sl
-                        long_weight = live_weight
-                    else:
-                        cancel_above = above_price
+                cancel_above = round(
+                    last_candle.close * 1.004, EXCHANGE_PRICE_PRECISION
+                )
 
             elif liquidation.direction == SHORT:
-                above_price = round(last_candle.close * 1.005, EXCHANGE_PRICE_PRECISION)
+                above_price = round(last_candle.close * 1.004, EXCHANGE_PRICE_PRECISION)
                 if reversed_trade:
                     long_above = above_price
                     long_tp = reversed_tp
@@ -648,17 +632,9 @@ class Exchange:
                 else:
                     cancel_above = above_price
 
-                below_price = round(last_candle.close * 0.995, EXCHANGE_PRICE_PRECISION)
-                if candles_before_confirmation > 1:
-                    cancel_below = below_price
-                else:
-                    if live_trade:
-                        short_below = below_price
-                        short_tp = live_tp
-                        short_sl = live_sl
-                        short_weight = live_weight
-                    else:
-                        cancel_below = below_price
+                cancel_below = round(
+                    last_candle.close * 0.996, EXCHANGE_PRICE_PRECISION
+                )
 
             if cancel_above and cancel_below:
                 # both cancel_above and cancel_below are set, no need to place order
