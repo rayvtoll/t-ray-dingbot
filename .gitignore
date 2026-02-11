@@ -32,3 +32,5 @@ bandit_report.json
 .coverage
 coverage.json
 testing*
+
+algorithm_input/*
