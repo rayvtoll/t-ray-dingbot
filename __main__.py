@@ -19,7 +19,6 @@ if USE_DISCORD:
         MINIMAL_LIQUIDATION,
         MINIMAL_NR_OF_LIQUIDATIONS,
         LIQUIDATION_DAYS,
-        LIQUIDATION_HOURS,
     )
     from discord_client import post_to_discord, DISCORD_CHANNEL_HEARTBEAT_ID
     from exchange import (
@@ -35,7 +34,6 @@ if USE_DISCORD:
         minimal_liquidation=MINIMAL_LIQUIDATION,
         interval=INTERVAL,
         liquidation_days=LIQUIDATION_DAYS,
-        liquidation_hours=LIQUIDATION_HOURS,
         forbidden_nr_of_candles_before_entry=FORBIDDEN_NR_OF_CANDLES_BEFORE_ENTRY,
     )
 

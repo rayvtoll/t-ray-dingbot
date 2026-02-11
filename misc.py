@@ -29,7 +29,6 @@ class Liquidation:
     nr_of_liquidations: int
     candle: Candle
     on_liquidation_days: bool
-    during_liquidation_hours: bool
     time_frame: str = "5m"  # Default time frame
 
     def to_dict(self) -> dict:

@@ -32,12 +32,6 @@ LIQUIDATION_DAYS = config(
     "LIQUIDATION_DAYS", cast=Csv(int), default="0,1,2,3,4"
 )  # Monday to Friday
 logger.info(f"{LIQUIDATION_DAYS=}")
-LIQUIDATION_HOURS = config(
-    "LIQUIDATION_HOURS",
-    cast=Csv(int),
-    default="2,3,4,14,15,16",
-)
-logger.info(f"{LIQUIDATION_HOURS=}")
 
 
 class CoinalyzeScanner:
@@ -118,15 +112,8 @@ class CoinalyzeScanner:
                     datetime.fromtimestamp(candle.timestamp / 1000).weekday()
                     in LIQUIDATION_DAYS
                 ),
-                during_liquidation_hours=(
-                    datetime.fromtimestamp(candle.timestamp / 1000).hour
-                    in LIQUIDATION_HOURS
-                ),
             )
-            if (
-                long_liquidation.on_liquidation_days
-                and long_liquidation.during_liquidation_hours
-            ):
+            if long_liquidation.on_liquidation_days:
                 self.liquidation_set.liquidations.insert(0, long_liquidation)
             discord_liquidations.append(long_liquidation)
         if (
@@ -147,15 +134,8 @@ class CoinalyzeScanner:
                     datetime.fromtimestamp(candle.timestamp / 1000).weekday()
                     in LIQUIDATION_DAYS
                 ),
-                during_liquidation_hours=(
-                    datetime.fromtimestamp(candle.timestamp / 1000).hour
-                    in LIQUIDATION_HOURS
-                ),
             )
-            if (
-                short_liquidation.on_liquidation_days
-                and short_liquidation.during_liquidation_hours
-            ):
+            if short_liquidation.on_liquidation_days:
                 self.liquidation_set.liquidations.insert(0, short_liquidation)
             discord_liquidations.append(short_liquidation)
         if USE_DISCORD and discord_liquidations:
