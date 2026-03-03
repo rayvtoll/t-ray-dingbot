@@ -602,7 +602,7 @@ class Exchange:
                     if reversed_trade:
                         reversed_tp: float = row.tp
                         reversed_weight: float = round(
-                            max(row.performance_lvl2 / 5, 1), 2
+                            min(row.performance_lvl2 / 5, 1), 2
                         )
                         reversed_sl: float = row.sl
 
