@@ -97,7 +97,7 @@ async def main() -> None:
 
             # update scanner time
             scanner.now = now
-            last_candle: Candle | None = await exchange.get_last_candle(now)
+            last_candle: Candle | None = await exchange.get_last_candle()
             if last_candle:
 
                 # run strategy for the exchange on LIQUIDATIONS list

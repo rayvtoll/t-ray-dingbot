@@ -24,8 +24,6 @@ TICKER: str = "BTC/USDT:USDT"
 EXCHANGE_PRICE_PRECISION: int = config(
     "EXCHANGE_PRICE_PRECISION", cast=int, default="1"
 )
-BINANCE_EXCHANGE = ccxt.binance()
-
 
 # Order Directions
 LONG = "long"
@@ -231,18 +229,14 @@ class Exchange:
         except Exception as e:
             logger.warning(f"Error settings leverage: {e}")
 
-    async def get_last_candle(self, now: datetime) -> Candle | None:
-        """Get the last candle from Binance exchange"""
+    async def get_last_candle(self) -> Candle | None:
+        """Get the last candle from the exchange"""
 
         try:
-            now_minus_5m = now.replace(
-                minute=now.minute - now.minute % 5, second=0, microsecond=0
-            ) - timedelta(minutes=5)
-            last_candles = await BINANCE_EXCHANGE.fetch_ohlcv(
+            last_candles = await self.exchange.fetch_ohlcv(
                 symbol=TICKER,
                 timeframe="5m",
-                since=int(now_minus_5m.timestamp() * 1000),
-                limit=2,
+                limit=1,
             )
             candle: Candle = Candle(*last_candles[0])
             logger.info(f"{candle=}")
