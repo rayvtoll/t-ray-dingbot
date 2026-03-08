@@ -52,8 +52,6 @@ LIQUIDATION_SET: LiquidationSet = LiquidationSet(liquidations=LIQUIDATIONS)
 
 
 async def main() -> None:
-    first_run = True
-
     # enable scanner
     scanner = CoinalyzeScanner(datetime.now(), LIQUIDATION_SET)
     await scanner.set_symbols()
@@ -89,11 +87,7 @@ async def main() -> None:
     while True:
         now = datetime.now()
 
-        if (now.minute % 5 == 0 and now.second == 0) or first_run:
-
-            # disable first_run if needed
-            if first_run:
-                first_run = False
+        if now.minute % 5 == 0 and now.second == 0:
 
             # update scanner time
             scanner.now = now

@@ -24,6 +24,7 @@ TICKER: str = "BTC/USDT:USDT"
 EXCHANGE_PRICE_PRECISION: int = config(
     "EXCHANGE_PRICE_PRECISION", cast=int, default="1"
 )
+ONLY_TRADE_2R_SETUPS = config("ONLY_TRADE_2R_SETUPS", cast=bool, default=False)
 
 # Order Directions
 LONG = "long"
@@ -594,11 +595,15 @@ class Exchange:
                 if row.hour == liquidation_datetime.hour:
                     reversed_trade = row.trade_lvl2
                     if reversed_trade:
-                        reversed_tp: float = row.tp
+                        reversed_tp: float = (
+                            row.tp if not ONLY_TRADE_2R_SETUPS else ((row.sl + 0.3) * 2)
+                        )
                         reversed_weight: float = round(
                             min(row.performance_lvl2 / 5, 1), 2
                         )
-                        reversed_sl: float = row.sl
+                        reversed_sl: float = (
+                            row.sl if not ONLY_TRADE_2R_SETUPS else row.sl + 0.3
+                        )
 
             long_above = short_below = short_tp = short_sl = short_weight = long_tp = (
                 long_sl
