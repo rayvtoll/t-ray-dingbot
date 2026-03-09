@@ -596,13 +596,17 @@ class Exchange:
                     reversed_trade = row.trade_lvl2
                     if reversed_trade:
                         reversed_tp: float = (
-                            row.tp if not ONLY_TRADE_2R_SETUPS else ((row.sl + 0.3) * 2)
+                            row.tp
+                            if not ONLY_TRADE_2R_SETUPS
+                            else round((row.sl + 0.3) * 2, 2)
                         )
                         reversed_weight: float = round(
                             min(row.performance_lvl2 / 5, 1), 2
                         )
                         reversed_sl: float = (
-                            row.sl if not ONLY_TRADE_2R_SETUPS else row.sl + 0.3
+                            row.sl
+                            if not ONLY_TRADE_2R_SETUPS
+                            else round(row.sl + 0.3, 2)
                         )
 
             long_above = short_below = short_tp = short_sl = short_weight = long_tp = (
