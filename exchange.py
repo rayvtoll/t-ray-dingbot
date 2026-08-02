@@ -12,13 +12,11 @@ from misc import (
     Liquidation,
     LiquidationSet,
     PositionToOpen,
-    TPLimitOrderToPlace,
 )
 import pandas as pd
 from typing import List, Tuple
 
 from discord_client import USE_DISCORD, get_discord_table
-
 
 TICKER: str = "BTC/USDT:USDT"
 EXCHANGE_PRICE_PRECISION: int = config(
@@ -80,7 +78,6 @@ class Exchange:
             config=EXCHANGE_CONFIG
         )
         self.liquidation_set: LiquidationSet = liquidation_set
-        self.tp_limit_orders_to_place: List[TPLimitOrderToPlace] = []
         self.positions_to_open: List[PositionToOpen] = []
         self.positions: List[dict] = []
         self.market_sl_orders: List[dict] = []
@@ -395,7 +392,7 @@ class Exchange:
             + f"position around {last_candle.close=}"
         )
         if USE_DISCORD:
-            prive_above_or_below = (
+            price_above_or_below = (
                 position_to_open.long_above
                 if long_above
                 else position_to_open.short_below
@@ -405,7 +402,7 @@ class Exchange:
                 "price": (
                     f"$ {round(last_candle.close, EXCHANGE_PRICE_PRECISION):,} is "
                     + ("above" if long_above else "below")
-                    + f" $ {round(prive_above_or_below, EXCHANGE_PRICE_PRECISION):,}"
+                    + f" $ {round(price_above_or_below, EXCHANGE_PRICE_PRECISION):,}"
                 ),
                 "status": "entering " + (LONG if long_above else SHORT),
             }
@@ -430,7 +427,7 @@ class Exchange:
         takeprofit_percentage = (
             position_to_open.long_tp if long_above else position_to_open.short_tp
         )
-        price, stoploss_price, takeprofit_price = await self.limit_order_placement(
+        price, stoploss_price, takeprofit_price = await self.order_placement(
             direction=LONG if long_above else SHORT,
             amount=amount,
             stoploss_percentage=(
@@ -448,82 +445,6 @@ class Exchange:
                 takeprofit_price=takeprofit_price,
                 amount=amount,
             )
-
-    async def check_if_entry_orders_are_closed(self) -> None:
-        """Check if entry limit orders are filled to place take profit limit orders"""
-
-        # check if limit entry order is filled
-        try:
-            # get closed orders info
-            orders_info = await self.exchange.fetch_closed_orders(
-                symbol=TICKER,
-                since=int((datetime.now() - timedelta(hours=24)).timestamp() * 1000),
-                limit=100,
-            )
-        except Exception as e:
-            orders_info = []
-            logger.error(f"Error fetching order info: {e}")
-            if USE_DISCORD:
-                self.discord_message_queue.append(
-                    DiscordMessage(
-                        channel_id=DISCORD_CHANNEL_HEARTBEAT_ID,
-                        messages=[
-                            "Error fetching closed order info from exchange:",
-                            str(e),
-                        ],
-                    )
-                )
-
-        for tp_limit_order_to_place in deepcopy(self.tp_limit_orders_to_place):
-            await self.handle_tp_limit_order_to_place(
-                orders_info=orders_info,
-                tp_limit_order_to_place=tp_limit_order_to_place,
-            )
-
-    async def handle_tp_limit_order_to_place(
-        self, orders_info: dict, tp_limit_order_to_place: TPLimitOrderToPlace
-    ) -> None:
-        """Handle take profit limit order placement after entry order is filled"""
-
-        # loop over closed orders to find the one matching our limit order
-        for order_info in orders_info:
-            if (
-                str(order_info.get("id")) == str(tp_limit_order_to_place.order_id)
-                and order_info.get("info", {}).get("state") == "filled"
-            ):
-                logger.info(f"Limit order filled, time to add take profit")
-                self.tp_limit_orders_to_place.remove(tp_limit_order_to_place)
-
-                # add take profit limit order
-                try:
-                    await self.exchange.create_order(
-                        symbol=TICKER,
-                        type="limit",
-                        side=(
-                            "buy"
-                            if tp_limit_order_to_place.direction == SHORT
-                            else "sell"
-                        ),
-                        amount=tp_limit_order_to_place.amount,
-                        price=tp_limit_order_to_place.takeprofit_price,
-                        params=dict(
-                            marginMode="isolated",
-                            positionSide=tp_limit_order_to_place.direction,
-                            reduceOnly=True,
-                        ),
-                    )
-                except Exception as e:
-                    logger.error(f"Error placing take profit order: {e}")
-                    if USE_DISCORD:
-                        self.discord_message_queue.append(
-                            DiscordMessage(
-                                channel_id=DISCORD_CHANNEL_HEARTBEAT_ID,
-                                messages=[
-                                    "Error placing take profit order:",
-                                    str(e),
-                                ],
-                            )
-                        )
 
     async def get_algorithm_input_file(
         self, strategy_type: str, input_date: date
@@ -684,9 +605,6 @@ class Exchange:
             await self.handle_position_to_open(position_to_open, last_candle)
             await sleep(1)
 
-        if self.tp_limit_orders_to_place:
-            await self.check_if_entry_orders_are_closed()
-
         # loop over detected liquidations
         for liquidation in deepcopy(self.liquidation_set.liquidations):
             await self.handle_liquidation(liquidation, last_candle)
@@ -749,7 +667,7 @@ class Exchange:
                 )
             return None
 
-    async def limit_order_placement(
+    async def order_placement(
         self,
         direction: str,
         amount: float,
@@ -763,7 +681,6 @@ class Exchange:
         """
 
         logger.info(f"Placing {direction} order")
-        order = None
 
         try:
             price = await self.get_price()
@@ -775,12 +692,13 @@ class Exchange:
             stoploss_price, takeprofit_price = await self.get_sl_and_tp_price(
                 direction, price, stoploss_percentage, takeprofit_percentage
             )
-            order: dict = await self.exchange.create_order(
+
+            # place market order with stop loss
+            await self.exchange.create_order(
                 symbol=TICKER,
-                type="limit",
+                type="market",
                 side="buy" if direction == LONG else "sell",
                 amount=amount,
-                price=price,
                 params=dict(
                     marginMode="isolated",
                     positionSide=direction,
@@ -788,14 +706,21 @@ class Exchange:
                 ),
             )
 
-            # add to tp limit orders to place list
-            self.tp_limit_orders_to_place.append(
-                TPLimitOrderToPlace(
-                    order_id=str(order.get("id")),
-                    direction=direction,
-                    amount=amount,
-                    takeprofit_price=takeprofit_price,
-                )
+            # ensure the market order is placed before the take profit limit order is placed
+            await sleep(2)
+
+            # add take profit limit order
+            await self.exchange.create_order(
+                symbol=TICKER,
+                type="limit",
+                side=("buy" if direction == SHORT else "sell"),
+                amount=amount,
+                price=takeprofit_price,
+                params=dict(
+                    marginMode="isolated",
+                    positionSide=direction,
+                    reduceOnly=True,
+                ),
             )
         except Exception as e:
             logger.error(f"Error placing order: {e}")

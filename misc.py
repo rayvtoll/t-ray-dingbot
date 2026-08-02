@@ -139,13 +139,3 @@ class DiscordMessage:
     channel_id: str
     messages: List[str]
     at_everyone: bool = False
-
-
-@dataclass
-class TPLimitOrderToPlace:
-    """TPLimitOrderToPlace class to hold the take profit limit order data"""
-
-    order_id: str
-    direction: str
-    amount: float
-    takeprofit_price: float
