@@ -22,7 +22,8 @@ TICKER: str = "BTC/USDT:USDT"
 EXCHANGE_PRICE_PRECISION: int = config(
     "EXCHANGE_PRICE_PRECISION", cast=int, default="1"
 )
-ONLY_TRADE_3R_SETUPS = config("ONLY_TRADE_3R_SETUPS", cast=bool, default=False)
+SMOOTH_OUT_SETUPS = config("SMOOTH_OUT_SETUPS", cast=bool, default=True)
+SMOOTH_AMOUNT = config("SMOOTH_AMOUNT", cast=float, default=0.1)
 
 # Order Directions
 LONG = "long"
@@ -518,16 +519,16 @@ class Exchange:
                     if reversed_trade:
                         reversed_tp: float = (
                             row.tp
-                            if not ONLY_TRADE_3R_SETUPS
-                            else round((row.sl * 1.5) * 3, 2)
+                            if not SMOOTH_OUT_SETUPS
+                            else round(row.tp * (1 - SMOOTH_AMOUNT), 2)
                         )
                         reversed_weight: float = round(
                             min(row.performance_lvl2 / 5, 1), 2
                         )
                         reversed_sl: float = (
                             row.sl
-                            if not ONLY_TRADE_3R_SETUPS
-                            else round(row.sl * 1.5, 2)
+                            if not SMOOTH_OUT_SETUPS
+                            else round(row.sl * (1 + SMOOTH_AMOUNT), 2)
                         )
 
             long_above = short_below = short_tp = short_sl = short_weight = long_tp = (
